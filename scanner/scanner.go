@@ -314,7 +314,7 @@ func (s *Scanner) updatePosition(text string) {
 	} else {
 		s.col = utf8.RuneCountInString(text[strings.LastIndex(text, "\n"):])
 	}
-	s.pos += width
+	s.pos += len(text) // while col is a rune index, pos is a byte index
 }
 
 // emitToken returns a Token for the string v and updates the scanner position.

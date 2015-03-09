@@ -18,7 +18,7 @@ func TestMatchers(t *testing.T) {
 			tt := ttList[i].(tokenType)
 			tVal := ttList[i+1].(string)
 			if tok := scanner.Next(); tok.Type != tt || tok.Value != tVal {
-				t.Errorf("did not match: %s", s)
+				t.Errorf("did not match: %s (got %v)", s, tok)
 			}
 
 			i += 2
@@ -54,4 +54,5 @@ func TestMatchers(t *testing.T) {
 	checkMatch("*=", TokenSubstringMatch, "*=")
 	checkMatch("{", TokenChar, "{")
 	checkMatch("\uFEFF", TokenBOM, "\uFEFF")
+	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, `"stuff"`)
 }
