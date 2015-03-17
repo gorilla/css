@@ -237,7 +237,7 @@ func (s *Scanner) Next() *Token {
 	case '#':
 		// Another common one: Hash or Char.
 		if match := matchers[TokenHash].FindString(input); match != "" {
-			return s.emitSimple(TokenHash, match)
+			return s.emitToken(TokenHash, match)
 		}
 		return s.emitSimple(TokenChar, "#")
 	case '@':
