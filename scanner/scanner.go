@@ -111,7 +111,7 @@ var macros = map[string]string{
 	"unicode":    `\\[0-9a-fA-F]{1,6}{wc}?`,
 	"escape":     "{unicode}|\\\\[\u0020-\u007E\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]",
 	"nmchar":     `[a-zA-Z0-9_-]|{nonascii}|{escape}`,
-	"num":        `[0-9]+|[0-9]*\.[0-9]+`,
+	"num":        `[0-9]*\.[0-9]+|[0-9]+`,
 	"string":     `"(?:{stringchar}|')*"|'(?:{stringchar}|")*'`,
 	"stringchar": `{urlchar}|[ ]|\\{nl}`,
 	"urlchar":    "[\u0009\u0021\u0023-\u0026\u0027-\u007E]|{nonascii}|{escape}",
