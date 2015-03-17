@@ -109,9 +109,9 @@ var macros = map[string]string{
 	"nmstart":    `[a-zA-Z_]|{nonascii}|{escape}`,
 	"nonascii":   "[\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]",
 	"unicode":    `\\[0-9a-fA-F]{1,6}{wc}?`,
-	"escape":     "{unicode}|\\[\u0020-\u007E\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]",
+	"escape":     "{unicode}|\\\\[\u0020-\u007E\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]",
 	"nmchar":     `[a-zA-Z0-9_-]|{nonascii}|{escape}`,
-	"num":        `[0-9]+|[0-9]*\.[0-9]+`,
+	"num":        `[0-9]*\.[0-9]+|[0-9]+`,
 	"string":     `"(?:{stringchar}|')*"|'(?:{stringchar}|")*'`,
 	"stringchar": `{urlchar}|[ ]|\\{nl}`,
 	"urlchar":    "[\u0009\u0021\u0023-\u0026\u0027-\u007E]|{nonascii}|{escape}",
@@ -237,7 +237,7 @@ func (s *Scanner) Next() *Token {
 	case '#':
 		// Another common one: Hash or Char.
 		if match := matchers[TokenHash].FindString(input); match != "" {
-			return s.emitSimple(TokenHash, match)
+			return s.emitToken(TokenHash, match)
 		}
 		return s.emitSimple(TokenChar, "#")
 	case '@':
@@ -314,7 +314,7 @@ func (s *Scanner) updatePosition(text string) {
 	} else {
 		s.col = utf8.RuneCountInString(text[strings.LastIndex(text, "\n"):])
 	}
-	s.pos += width
+	s.pos += len(text) // while col is a rune index, pos is a byte index
 }
 
 // emitToken returns a Token for the string v and updates the scanner position.
