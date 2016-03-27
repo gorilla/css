@@ -55,4 +55,18 @@ func TestMatchers(t *testing.T) {
 	checkMatch("{", TokenChar, "{")
 	checkMatch("\uFEFF", TokenBOM, "\uFEFF")
 	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, `"stuff"`)
+	checkMatch(
+		"url(test.com)url(test2.com)",
+		TokenURI, "url(test.com)",
+		TokenURI, "url(test2.com)",
+	)
+	checkMatch(
+		"url('test.com/(A)')url(\"test2.com/(B)\")",
+		TokenURI, "url('test.com/(A)')",
+		TokenURI, "url(\"test2.com/(B)\")",
+	)
+	checkMatch(
+		"url(test.com/(a)",
+		TokenURI, "url(test.com/(a)",
+	)
 }
