@@ -32,6 +32,7 @@ func TestMatchers(t *testing.T) {
 	checkMatch("abcd", TokenIdent, "abcd")
 	checkMatch(`"abcd"`, TokenString, `"abcd"`)
 	checkMatch("'abcd'", TokenString, "'abcd'")
+	checkMatch(`"ab\"cd"`, TokenString, `"ab\"cd"`)
 	checkMatch("#name", TokenHash, "#name")
 	checkMatch("42''", TokenNumber, "42", TokenString, "''")
 	checkMatch("4.2", TokenNumber, "4.2")
