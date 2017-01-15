@@ -114,7 +114,7 @@ var macros = map[string]string{
 	"num":        `[0-9]*\.[0-9]+|[0-9]+`,
 	"string":     `"(?:{stringchar}|')*"|'(?:{stringchar}|")*'`,
 	"stringchar": `{urlchar}|[ ]|\\{nl}`,
-	"urlchar":    "[\u0009\u0021\u0023-\u0026\u0027-\u007E]|{nonascii}|{escape}",
+	"urlchar":    "[\u0021\u0023-\u0026\u0028-\\\u005b\\\u005d-\u007E]|{nonascii}|{escape}",
 	"nl":         `[\n\r\f]|\r\n`,
 	"w":          `{wc}*`,
 	"wc":         `[\t\n\f\r ]`,
@@ -254,10 +254,10 @@ func (s *Scanner) Next() *Token {
 		match := matchers[TokenString].FindString(input)
 		if match != "" {
 			return s.emitToken(TokenString, match)
-		} else {
-			s.err = &Token{TokenError, "unclosed quotation mark", s.row, s.col}
-			return s.err
 		}
+
+		s.err = &Token{TokenError, "unclosed quotation mark", s.row, s.col}
+		return s.err
 	case '/':
 		// Comment, error or Char.
 		if len(input) > 1 && input[1] == '*' {
