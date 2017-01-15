@@ -114,10 +114,18 @@ var macros = map[string]string{
 	"num":        `[0-9]*\.[0-9]+|[0-9]+`,
 	"string":     `"(?:{stringchar}|')*"|'(?:{stringchar}|")*'`,
 	"stringchar": `{urlchar}|[ ]|\\{nl}`,
-	"urlchar":    "[\u0021\u0023-\u0026\u0028-\\\u005b\\\u005d-\u007E]|{nonascii}|{escape}",
 	"nl":         `[\n\r\f]|\r\n`,
 	"w":          `{wc}*`,
 	"wc":         `[\t\n\f\r ]`,
+
+	// urlchar should accept [(ascii characters minus those that need escaping)|{nonascii}|{escape}]
+	// ASCII characters range = `[\u0020-\u007e]`
+	// Skip space \u0020 = `[\u0021-\u007e]`
+	// Skip quotation mark \0022 = `[\u0021\u0023-\u007e]`
+	// Skip apostrophe \u0027 = `[\u0021\u0023-\u0026\u0028-\u007e]`
+	// Skip reverse solidus \u005c = `[\u0021\u0023-\u0026\u0028-\u005b\u005d\u007e]`
+	// Finally, the left square bracket (\u005b) and right (\u005d) needs escaping themselves
+	"urlchar": "[\u0021\u0023-\u0026\u0028-\\\u005b\\\u005d-\u007E]|{nonascii}|{escape}",
 }
 
 // productions maps the list of tokens to patterns to be expanded.
