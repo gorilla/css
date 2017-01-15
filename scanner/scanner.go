@@ -130,7 +130,7 @@ var productions = map[tokenType]string{
 	TokenNumber:       `{num}`,
 	TokenPercentage:   `{num}%`,
 	TokenDimension:    `{num}{ident}`,
-	TokenURI:          `url\({w}(?:{string}|{urlchar}*){w}\)`,
+	TokenURI:          `url\({w}(?:{string}|{urlchar}*?){w}\)`,
 	TokenUnicodeRange: `U\+[0-9A-F\?]{1,6}(?:-[0-9A-F]{1,6})?`,
 	//TokenCDO:            `<!--`,
 	TokenCDC:      `-->`,

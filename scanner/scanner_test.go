@@ -40,7 +40,18 @@ func TestMatchers(t *testing.T) {
 	checkMatch("4.2%", TokenPercentage, "4.2%")
 	checkMatch(".42%", TokenPercentage, ".42%")
 	checkMatch("42px", TokenDimension, "42px")
-	checkMatch("url('http://www.google.com/')", TokenURI, "url('http://www.google.com/')")
+	checkMatch("url(http://domain.com)", TokenURI, "url(http://domain.com)")
+	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "url( http://domain.com/uri/between/space )")
+	checkMatch("url('http://domain.com/uri/between/single/quote')", TokenURI, "url('http://domain.com/uri/between/single/quote')")
+	checkMatch(`url("http://domain.com/uri/between/double/quote")`, TokenURI, `url("http://domain.com/uri/between/double/quote")`)
+	checkMatch("url(http://domain.com/?parentheses=%28)", TokenURI, "url(http://domain.com/?parentheses=%28)")
+	checkMatch("url( http://domain.com/?parentheses=%28&between=space )", TokenURI, "url( http://domain.com/?parentheses=%28&between=space )")
+	checkMatch("url('http://domain.com/uri/(parentheses)/between/single/quote')", TokenURI, "url('http://domain.com/uri/(parentheses)/between/single/quote')")
+	checkMatch(`url("http://domain.com/uri/(parentheses)/between/double/quote")`, TokenURI, `url("http://domain.com/uri/(parentheses)/between/double/quote")`)
+	checkMatch("url(http://domain.com/uri/1)url(http://domain.com/uri/2)",
+		TokenURI, "url(http://domain.com/uri/1)",
+		TokenURI, "url(http://domain.com/uri/2)",
+	)
 	checkMatch("U+0042", TokenUnicodeRange, "U+0042")
 	checkMatch("<!--", TokenCDO, "<!--")
 	checkMatch("-->", TokenCDC, "-->")
