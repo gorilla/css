@@ -4,9 +4,7 @@
 
 package scanner
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestMatchers(t *testing.T) {
 	// Just basic checks, not exhaustive at all.
@@ -66,4 +64,7 @@ func TestMatchers(t *testing.T) {
 	checkMatch("{", TokenChar, "{")
 	checkMatch("\uFEFF", TokenBOM, "\uFEFF")
 	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, `"stuff"`)
+	// url(1.png)url(2.png) seems unlike exist in valid css, but also failed when
+	//   .A{background:url(1.png);}.B{background:url(2.png);}
+	checkMatch("url(1.png)url(2.png)", TokenURI, "url(1.png)", TokenURI, "url(2.png)")
 }

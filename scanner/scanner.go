@@ -114,7 +114,7 @@ var macros = map[string]string{
 	"num":        `[0-9]*\.[0-9]+|[0-9]+`,
 	"string":     `"(?:{stringchar}|')*"|'(?:{stringchar}|")*'`,
 	"stringchar": `{urlchar}|[ ]|\\{nl}`,
-	"urlchar":    "[\u0009\u0021\u0023-\u0026\u0027-\u007E]|{nonascii}|{escape}",
+	"urlchar":    "[\u0009\u0021\u0023-\u0028\u002A-\u007E]|{nonascii}|{escape}",
 	"nl":         `[\n\r\f]|\r\n`,
 	"w":          `{wc}*`,
 	"wc":         `[\t\n\f\r ]`,
