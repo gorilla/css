@@ -12,17 +12,17 @@ import (
 	"unicode/utf8"
 )
 
-// tokenType identifies the type of lexical tokens.
-type tokenType int
+// TokenType identifies the type of lexical tokens.
+type TokenType int
 
 // String returns a string representation of the token type.
-func (t tokenType) String() string {
+func (t TokenType) String() string {
 	return tokenNames[t]
 }
 
 // Token represents a token and the corresponding string.
 type Token struct {
-	Type   tokenType
+	Type   TokenType
 	Value  string
 	Line   int
 	Column int
@@ -57,7 +57,7 @@ const (
 	TokenUnicodeRange
 	TokenCDO
 	TokenCDC
-	TokenS
+	TokenS // whitespace-token
 	TokenComment
 	TokenFunction
 	TokenIncludes
@@ -65,12 +65,28 @@ const (
 	TokenPrefixMatch
 	TokenSuffixMatch
 	TokenSubstringMatch
-	TokenChar
+	TokenDelim
 	TokenBOM
+	// Added later
+	TokenBadString
+	TokenBadURI
+	TokenColumn
+	TokenColon
+	TokenSemicolon
+	TokenComma
+	TokenOpenBracket
+	TokenCloseBracket
+	TokenOpenParen
+	TokenCloseParen
+	TokenOpenBrace
+	TokenCloseBrace
 )
 
+// backwards compatibility
+const TokenChar = TokenDelim
+
 // tokenNames maps tokenType's to their names. Used for conversion to string.
-var tokenNames = map[tokenType]string{
+var tokenNames = map[TokenType]string{
 	TokenError:          "error",
 	TokenEOF:            "EOF",
 	TokenIdent:          "IDENT",
@@ -92,8 +108,20 @@ var tokenNames = map[tokenType]string{
 	TokenPrefixMatch:    "PREFIXMATCH",
 	TokenSuffixMatch:    "SUFFIXMATCH",
 	TokenSubstringMatch: "SUBSTRINGMATCH",
-	TokenChar:           "CHAR",
+	TokenDelim:          "DELIM",
 	TokenBOM:            "BOM",
+	TokenBadString:      "BAD-STRING",
+	TokenBadURI:         "BAD-URI",
+	TokenColumn:         "COLUMN",
+	TokenColon:          "COLON",
+	TokenSemicolon:      "SEMICOLON",
+	TokenComma:          "COMMA",
+	TokenOpenBracket:    "[",
+	TokenCloseBracket:   "]",
+	TokenOpenParen:      "(",
+	TokenCloseParen:     ")",
+	TokenOpenBrace:      "{",
+	TokenCloseBrace:     "}",
 }
 
 // Macros and productions -----------------------------------------------------
