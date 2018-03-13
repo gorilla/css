@@ -12,22 +12,6 @@ import (
 	"unicode/utf8"
 )
 
-// TokenType identifies the type of lexical tokens.
-type TokenType int
-
-// String returns a string representation of the token type.
-func (t TokenType) String() string {
-	return tokenNames[t]
-}
-
-// Token represents a token and the corresponding string.
-type Token struct {
-	Type   TokenType
-	Value  string
-	Line   int
-	Column int
-}
-
 // String returns a string representation of the token.
 func (t *Token) String() string {
 	if len(t.Value) > 10 {
@@ -39,90 +23,6 @@ func (t *Token) String() string {
 }
 
 // All tokens -----------------------------------------------------------------
-
-// The complete list of tokens in CSS3.
-const (
-	// Scanner flags.
-	TokenError tokenType = iota
-	TokenEOF
-	// From now on, only tokens from the CSS specification.
-	TokenIdent
-	TokenAtKeyword
-	TokenString
-	TokenHash
-	TokenNumber
-	TokenPercentage
-	TokenDimension
-	TokenURI
-	TokenUnicodeRange
-	TokenCDO
-	TokenCDC
-	TokenS // whitespace-token
-	TokenComment
-	TokenFunction
-	TokenIncludes
-	TokenDashMatch
-	TokenPrefixMatch
-	TokenSuffixMatch
-	TokenSubstringMatch
-	TokenDelim
-	TokenBOM
-	// Added later
-	TokenBadString
-	TokenBadURI
-	TokenColumn
-	TokenColon
-	TokenSemicolon
-	TokenComma
-	TokenOpenBracket
-	TokenCloseBracket
-	TokenOpenParen
-	TokenCloseParen
-	TokenOpenBrace
-	TokenCloseBrace
-)
-
-// backwards compatibility
-const TokenChar = TokenDelim
-
-// tokenNames maps tokenType's to their names. Used for conversion to string.
-var tokenNames = map[TokenType]string{
-	TokenError:          "error",
-	TokenEOF:            "EOF",
-	TokenIdent:          "IDENT",
-	TokenAtKeyword:      "ATKEYWORD",
-	TokenString:         "STRING",
-	TokenHash:           "HASH",
-	TokenNumber:         "NUMBER",
-	TokenPercentage:     "PERCENTAGE",
-	TokenDimension:      "DIMENSION",
-	TokenURI:            "URI",
-	TokenUnicodeRange:   "UNICODE-RANGE",
-	TokenCDO:            "CDO",
-	TokenCDC:            "CDC",
-	TokenS:              "S",
-	TokenComment:        "COMMENT",
-	TokenFunction:       "FUNCTION",
-	TokenIncludes:       "INCLUDES",
-	TokenDashMatch:      "DASHMATCH",
-	TokenPrefixMatch:    "PREFIXMATCH",
-	TokenSuffixMatch:    "SUFFIXMATCH",
-	TokenSubstringMatch: "SUBSTRINGMATCH",
-	TokenDelim:          "DELIM",
-	TokenBOM:            "BOM",
-	TokenBadString:      "BAD-STRING",
-	TokenBadURI:         "BAD-URI",
-	TokenColumn:         "COLUMN",
-	TokenColon:          "COLON",
-	TokenSemicolon:      "SEMICOLON",
-	TokenComma:          "COMMA",
-	TokenOpenBracket:    "[",
-	TokenCloseBracket:   "]",
-	TokenOpenParen:      "(",
-	TokenCloseParen:     ")",
-	TokenOpenBrace:      "{",
-	TokenCloseBrace:     "}",
-}
 
 // Macros and productions -----------------------------------------------------
 // http://www.w3.org/TR/css3-syntax/#tokenization
@@ -217,7 +117,7 @@ func init() {
 // Scanner --------------------------------------------------------------------
 
 // New returns a new CSS scanner for the given input.
-func New(input string) *Scanner {
+func New(r *bufio.Reader) *Scanner {
 	// Normalize newlines.
 	input = strings.Replace(input, "\r\n", "\n", -1)
 	return &Scanner{
@@ -225,15 +125,6 @@ func New(input string) *Scanner {
 		row:   1,
 		col:   1,
 	}
-}
-
-// Scanner scans an input and emits tokens following the CSS3 specification.
-type Scanner struct {
-	input string
-	pos   int
-	row   int
-	col   int
-	err   *Token
 }
 
 // Next returns the next token from the input.
