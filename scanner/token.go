@@ -165,6 +165,7 @@ func (e *TokenExtraHash) String() string {
 // TokenExtraNumeric is attached to TokenNumber, TokenPercentage, and
 // TokenDimension.
 type TokenExtraNumeric struct {
+	// Value float64 // omitted from this implementation
 	NonInteger bool
 	Dimension  string
 }

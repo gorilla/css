@@ -76,6 +76,7 @@ func (z *Tokenizer) repeek() {
 	}
 }
 
+// §4.3.8
 // up to 2 bytes
 func isValidEscape(p []byte) bool {
 	if len(p) < 2 {
@@ -90,6 +91,7 @@ func isValidEscape(p []byte) bool {
 	return true
 }
 
+// §4.3.9
 func isNameStart(p byte) bool {
 	if p > 0x7F {
 		return true // any high code points
@@ -138,6 +140,7 @@ func isStartIdentifier(p []byte) bool {
 	return false
 }
 
+// §4.3.10
 // up to 3 bytes
 func isStartNumber(p []byte) bool {
 	if p[0] == '+' || p[0] == '-' {
@@ -207,6 +210,7 @@ var premadeTokens = map[byte]Token{
 	'E': Token{Type: TokenEOF},
 }
 
+// 4.3.1
 func (z *Tokenizer) consume() Token {
 	ch, err := z.r.ReadByte()
 	if err == io.EOF {
@@ -257,13 +261,13 @@ func (z *Tokenizer) consume() Token {
 		z.repeek()
 		if z.nextIsNumber() {
 			z.r.UnreadByte()
-			return z.consumeNumber()
+			return z.consumeNumeric()
 		}
 	case '-':
 		z.repeek()
 		if z.nextIsNumber() {
 			z.r.UnreadByte()
-			return z.consumeNumber()
+			return z.consumeNumeric()
 		}
 		if z.nextStartsIdentifier() {
 			z.r.UnreadByte()
@@ -277,7 +281,7 @@ func (z *Tokenizer) consume() Token {
 		z.repeek()
 		if z.nextIsNumber() {
 			z.r.UnreadByte()
-			return z.consumeNumber()
+			return z.consumeNumeric()
 		}
 	case '/':
 		z.repeek()
@@ -322,7 +326,7 @@ func (z *Tokenizer) consume() Token {
 
 	if '0' <= ch && ch <= '9' {
 		z.r.UnreadByte()
-		return z.consumeNumber()
+		return z.consumeNumeric()
 	}
 	if isNameStart(ch) {
 		z.r.UnreadByte()
@@ -332,4 +336,114 @@ func (z *Tokenizer) consume() Token {
 		Type:   TokenDelim,
 		String: string(rune(ch)),
 	}
+}
+
+// return the next byte, with 0 on EOF and panicing on other errors
+func (z *Tokenizer) nextByte() byte {
+	by, err := z.r.ReadByte()
+	if err == io.EOF {
+		return 0
+	} else if err != nil {
+		panic(err)
+	}
+	return by
+}
+
+// 4.3.2
+func (z *Tokenizer) consumeNumeric() Token {
+	repr, notInteger := z.consumeNumericInner()
+	e := &TokenExtraNumeric{
+		NonInteger: notInteger,
+	}
+	t := Token{
+		Type:   TokenNumeric,
+		String: string(repr),
+		Extra:  e,
+	}
+	z.repeek()
+	if z.nextStartsIdentifier() {
+		t.Type = TokenDimension
+		e.Dimension = z.consumeName()
+	} else if z.peek[0] == '%' {
+		z.r.Discard(1)
+		t.Type = TokenPercentage
+	}
+	return t
+}
+
+// §4.3.3
+func (z *Tokenizer) consumeIdentish() Token {
+}
+
+// §4.3.4
+func (z *Tokenizer) consumeString(delim byte) Token {
+}
+
+// §4.3.5
+func (z *Tokenizer) consumeURL() Token {
+}
+
+// §4.3.6
+func (z *Tokenizer) consumeUnicodeRange() Token {
+}
+
+// §4.3.7
+func (z *Tokenizer) consumeEscapedCP() rune {
+}
+
+// §4.3.11
+func (z *Tokenizer) consumeName() string {
+}
+
+// §4.3.12
+func (z *Tokenizer) consumeNumericInner() (repr []byte, notInteger bool) {
+	by := z.nextByte()
+	if by == '+' || by == '-' {
+		repr = append(repr, by)
+		by = z.nextByte()
+	}
+	consumeDigits := func() {
+		for '0' <= by && by <= '9' {
+			repr = append(repr, by)
+			by = z.nextByte()
+		}
+		if by != 0 {
+			// don't attempt to unread EOF
+			z.r.UnreadByte()
+		}
+	}
+
+	consumeDigits()
+	z.repeek()
+	if z.peek[0] == '.' && '0' <= z.peek[1] && z.peek[1] <= '9' {
+		notInteger = true
+
+		by = z.nextByte() // '.'
+		repr = append(repr, by)
+		by = z.nextByte()
+		consumeDigits()
+		z.repeek()
+	}
+	// [eE][+-]?[0-9]
+	if z.peek[0] == 'e' || z.peek[0] == 'E' {
+		var n int
+		if z.peek[1] == '+' && z.peek[1] == '-' && ('0' <= z.peek[2] && z.peek[2] <= '9') {
+			n = 3
+		} else if '0' <= z.peek[1] && z.peek[1] <= '9' {
+			n = 2
+		}
+		if n != 0 {
+			notInteger = true
+			repr = append(repr, z.peek[:n]...)
+			z.r.Discard(n)
+			by = z.nextByte()
+			consumeDigits()
+		}
+	}
+
+	return repr, notInteger
+}
+
+// §4.3.14
+func (z *Tokenizer) consumeBadURL() string {
 }
