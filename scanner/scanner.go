@@ -1,3 +1,7 @@
+// Copyright (c) 2018 Kane York. Licensed under 2-Clause BSD.
+
+//+build ignore
+
 // Copyright 2012 The Gorilla Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -5,6 +9,7 @@
 package scanner
 
 import (
+	"bufio"
 	"fmt"
 	"regexp"
 	"strings"
@@ -57,7 +62,7 @@ var macros = map[string]string{
 }
 
 // productions maps the list of tokens to patterns to be expanded.
-var productions = map[tokenType]string{
+var productions = map[TokenType]string{
 	// Unused regexps (matched using other methods) are commented out.
 	TokenIdent:        `{ident}`,
 	TokenAtKeyword:    `@{ident}`,
@@ -86,11 +91,11 @@ var productions = map[tokenType]string{
 //
 // The map is filled on init() using the macros and productions defined in
 // the CSS specification.
-var matchers = map[tokenType]*regexp.Regexp{}
+var matchers = map[TokenType]*regexp.Regexp{}
 
 // matchOrder is the order to test regexps when first-char shortcuts
 // can't be used.
-var matchOrder = []tokenType{
+var matchOrder = []TokenType{
 	TokenURI,
 	TokenFunction,
 	TokenUnicodeRange,
@@ -115,6 +120,13 @@ func init() {
 }
 
 // Scanner --------------------------------------------------------------------
+
+type Scanner struct {
+	input string
+	row   int
+	col   int
+	pos   int
+}
 
 // New returns a new CSS scanner for the given input.
 func New(r *bufio.Reader) *Scanner {
@@ -245,7 +257,7 @@ func (s *Scanner) updatePosition(text string) {
 }
 
 // emitToken returns a Token for the string v and updates the scanner position.
-func (s *Scanner) emitToken(t tokenType, v string) *Token {
+func (s *Scanner) emitToken(t TokenType, v string) *Token {
 	token := &Token{t, v, s.row, s.col}
 	s.updatePosition(v)
 	return token
@@ -255,7 +267,7 @@ func (s *Scanner) emitToken(t tokenType, v string) *Token {
 // position in a simplified manner.
 //
 // The string is known to have only ASCII characters and to not have a newline.
-func (s *Scanner) emitSimple(t tokenType, v string) *Token {
+func (s *Scanner) emitSimple(t TokenType, v string) *Token {
 	token := &Token{t, v, s.row, s.col}
 	s.col += len(v)
 	s.pos += len(v)
@@ -267,7 +279,7 @@ func (s *Scanner) emitSimple(t tokenType, v string) *Token {
 // first character from the prefix.
 //
 // The prefix is known to have only ASCII characters and to not have a newline.
-func (s *Scanner) emitPrefixOrChar(t tokenType, prefix string) *Token {
+func (s *Scanner) emitPrefixOrChar(t TokenType, prefix string) *Token {
 	if strings.HasPrefix(s.input[s.pos:], prefix) {
 		return s.emitSimple(t, prefix)
 	}

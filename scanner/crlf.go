@@ -1,3 +1,5 @@
+// Copyright (c) 2018 Kane York. Licensed under 2-Clause BSD.
+
 package scanner
 
 // The crlf package helps in dealing with files that have DOS-style CR/LF line
@@ -7,11 +9,7 @@ package scanner
 //
 // package crlf
 
-import (
-	"io"
-
-	"golang.org/x/text/transform"
-)
+import "golang.org/x/text/transform"
 
 // Normalize takes CRLF, CR, or LF line endings in src, and converts them
 // to LF in dst.

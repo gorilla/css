@@ -1,8 +1,11 @@
 // Copyright 2018 Kane York.
+// Copyright 2012 The Gorilla Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package scanner
+
+import "fmt"
 
 // TokenType identifies the type of lexical tokens.
 type TokenType int
@@ -31,10 +34,21 @@ func (t TokenType) SimpleToken() bool {
 	return true
 }
 
+// ParseError represents a CSS syntax error.
+type ParseError struct {
+	Type    TokenType
+	Message string
+	Loc     int
+}
+
+func (e *ParseError) Error() string {
+	return e.Message
+}
+
 // Token represents a token in the CSS syntax.
 type Token struct {
-	Type   TokenType
-	String string
+	Type  TokenType
+	Value string
 	// Extra data for the token beyond a simple string.
 	// Will always be a pointer to a "Token*Extra" type in this package.
 	Extra TokenExtra
@@ -43,7 +57,7 @@ type Token struct {
 // The complete list of tokens in CSS Syntax Level 3.
 const (
 	// Scanner flags.
-	TokenError tokenType = iota
+	TokenError TokenType = iota
 	TokenEOF
 	// From now on, only tokens from the CSS specification.
 	TokenIdent
@@ -113,7 +127,6 @@ var tokenNames = map[TokenType]string{
 	TokenSuffixMatch:    "SUFFIXMATCH",
 	TokenSubstringMatch: "SUBSTRINGMATCH",
 	TokenDelim:          "DELIM",
-	TokenBOM:            "BOM",
 	TokenBadString:      "BAD-STRING",
 	TokenBadURI:         "BAD-URI",
 	TokenBadEscape:      "BAD-ESCAPE",
@@ -192,9 +205,9 @@ func (e *TokenExtraUnicodeRange) String() string {
 	}
 
 	if e.Start == e.End {
-		return fmt.Sprintf("%0X", e.Start)
+		return fmt.Sprintf("U+%04X", e.Start)
 	} else {
-		return fmt.Sprintf("%0X-%0X", e.Start, e.End)
+		return fmt.Sprintf("U+%04X-%04X", e.Start, e.End)
 	}
 }
 
