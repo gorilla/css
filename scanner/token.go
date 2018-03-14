@@ -5,7 +5,12 @@
 
 package scanner
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strings"
+)
 
 // TokenType identifies the type of lexical tokens.
 type TokenType int
@@ -61,6 +66,8 @@ const (
 	TokenEOF
 	// From now on, only tokens from the CSS specification.
 	TokenIdent
+	TokenFunction
+	TokenDelim // Single character
 	TokenAtKeyword
 	TokenString
 	TokenHash
@@ -76,19 +83,19 @@ const (
 	// CSS Syntax Level 3 removes comments from the token stream, but they are
 	// preserved here.
 	TokenComment
-	TokenFunction
+
+	// Error tokens
+	TokenBadString
+	TokenBadURI
+	TokenBadEscape // a '\' right before a newline
+
+	// Fixed-string tokens
 	TokenIncludes
 	TokenDashMatch
 	TokenPrefixMatch
 	TokenSuffixMatch
 	TokenSubstringMatch
 	TokenColumn
-	TokenDelim
-	// Error tokens
-	TokenBadString
-	TokenBadURI
-	TokenBadEscape // a '\' right before a newline
-	// Single-character tokens
 	TokenColon
 	TokenSemicolon
 	TokenComma
@@ -239,4 +246,224 @@ func (e *TokenExtraError) ParseError() *ParseError {
 		return nil
 	}
 	return pe
+}
+
+func escapeIdentifier(s string) string {
+	// TODO
+	return s
+}
+
+func escapeDimension(s string) string {
+	if strings.HasPrefix(s, "e") || strings.HasPrefix(s, "E") {
+		return "\\" + escapeIdentifier(s)
+	}
+	return escapeIdentifier(s)
+}
+
+var escapeStringReplacer = strings.NewReplacer("\"", "\\\"", "\n", "\\0A ", "\\", "\\\\")
+
+func (t *Token) Render() string {
+	var buf bytes.Buffer
+	t.WriteTo(&buf)
+	return buf.String()
+}
+
+func (t *Token) WriteTo(w io.Writer) {
+	switch t.Type {
+	case TokenError:
+		return
+	case TokenEOF:
+		return
+	case TokenIdent:
+		fmt.Fprint(w, escapeIdentifier(t.Value))
+	case TokenAtKeyword:
+		fmt.Fprint(w, "@", escapeIdentifier(t.Value))
+	case TokenDelim:
+		if t.Value == "\\" {
+			fmt.Fprint(w, "\\\n")
+		} else {
+			fmt.Fprint(w, t.Value)
+		}
+	case TokenHash:
+		io.WriteString(w, "#")
+		fmt.Fprint(w, escapeIdentifier(t.Value))
+	case TokenPercentage:
+		fmt.Fprint(w, t.Value, "%")
+	case TokenDimension:
+		e := t.Extra.(*TokenExtraNumeric)
+		fmt.Fprint(w, t.Value, e.Dimension)
+	case TokenString:
+		io.WriteString(w, "\"")
+		escapeStringReplacer.WriteString(w, t.Value)
+		io.WriteString(w, "\"")
+	case TokenURI:
+		io.WriteString(w, "url(\"")
+		escapeStringReplacer.WriteString(w, t.Value)
+		io.WriteString(w, "\")")
+	case TokenUnicodeRange:
+		fmt.Fprint(w, t.Extra.String())
+	case TokenComment:
+		io.WriteString(w, "/*")
+		io.WriteString(w, t.Value)
+		io.WriteString(w, "/*")
+	case TokenFunction:
+		fmt.Fprint(w, t.Value, "(")
+
+	case TokenBadEscape, TokenBadString, TokenBadURI:
+		fmt.Fprint(w, t.Value)
+	default:
+		fmt.Fprint(w, t.Value)
+	}
+}
+
+// TokenRenderer takes care of the comment insertion rules for serialization.
+type TokenRenderer struct {
+	lastToken Token
+}
+
+func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) {
+	var prevKey, curKey interface{}
+	if r.lastToken.Type == TokenDelim {
+		prevKey = r.lastToken.Value[0]
+	} else {
+		prevKey = r.lastToken.Type
+	}
+	if t.Type == TokenDelim {
+		curKey = t.Value[0]
+	} else {
+		curKey = t.Type
+	}
+
+	m1, ok := commentInsertionRules[prevKey]
+	if ok {
+		if m1[curKey] {
+			io.WriteString(w, "/**/")
+		}
+	}
+
+	t.WriteTo(w)
+	r.lastToken = t
+}
+
+var commentInsertionThruCDC = map[interface{}]bool{
+	TokenIdent:        true,
+	TokenFunction:     true,
+	TokenURI:          true,
+	TokenBadURI:       true,
+	TokenNumber:       true,
+	TokenPercentage:   true,
+	TokenDimension:    true,
+	TokenUnicodeRange: true,
+	TokenCDC:          true,
+	'-':               true,
+	'(':               false,
+}
+
+var commentInsertionRules = map[interface{}]map[interface{}]bool{
+	TokenIdent: map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenURI:          true,
+		TokenBadURI:       true,
+		'-':               true,
+		TokenNumber:       true,
+		TokenPercentage:   true,
+		TokenDimension:    true,
+		TokenUnicodeRange: true,
+		TokenCDC:          true,
+		'(':               true,
+	},
+	TokenAtKeyword: commentInsertionThruCDC,
+	TokenHash:      commentInsertionThruCDC,
+	TokenDimension: commentInsertionThruCDC,
+	'#': map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenURI:          true,
+		TokenBadURI:       true,
+		TokenNumber:       true,
+		TokenPercentage:   true,
+		TokenDimension:    true,
+		TokenUnicodeRange: true,
+		TokenCDC:          false,
+		'-':               true,
+		'(':               false,
+	},
+	'-': map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenURI:          true,
+		TokenBadURI:       true,
+		TokenNumber:       true,
+		TokenPercentage:   true,
+		TokenDimension:    true,
+		TokenUnicodeRange: true,
+		TokenCDC:          false,
+		'-':               false,
+		'(':               false,
+	},
+	TokenNumber: map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenURI:          true,
+		TokenBadURI:       true,
+		TokenNumber:       true,
+		TokenPercentage:   true,
+		TokenDimension:    true,
+		TokenUnicodeRange: true,
+		TokenCDC:          false,
+		'-':               false,
+		'(':               false,
+	},
+	'@': map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenURI:          true,
+		TokenBadURI:       true,
+		TokenNumber:       false,
+		TokenPercentage:   false,
+		TokenDimension:    false,
+		TokenUnicodeRange: true,
+		TokenCDC:          false,
+		'-':               true,
+		'(':               false,
+	},
+	TokenUnicodeRange: map[interface{}]bool{
+		TokenIdent:        true,
+		TokenFunction:     true,
+		TokenNumber:       true,
+		TokenPercentage:   true,
+		TokenDimension:    true,
+		TokenUnicodeRange: false,
+		'?':               true,
+	},
+	'.': map[interface{}]bool{
+		TokenNumber:     true,
+		TokenPercentage: true,
+		TokenDimension:  true,
+	},
+	'+': map[interface{}]bool{
+		TokenNumber:     true,
+		TokenPercentage: true,
+		TokenDimension:  true,
+	},
+	'$': map[interface{}]bool{
+		'=': true,
+	},
+	'*': map[interface{}]bool{
+		'=': true,
+	},
+	'^': map[interface{}]bool{
+		'=': true,
+	},
+	'~': map[interface{}]bool{
+		'=': true,
+	},
+	'|': map[interface{}]bool{
+		'=': true,
+		'|': true,
+	},
+	'/': map[interface{}]bool{
+		'*': true,
+	},
 }

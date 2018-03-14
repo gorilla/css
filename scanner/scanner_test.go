@@ -31,6 +31,8 @@ func TestMatchers(t *testing.T) {
 				t.Errorf("double missing EOF after token %s, got %+v", s, tok)
 			}
 		}
+
+		Fuzz([]byte(s))
 	}
 
 	checkMatch("abcd", TokenIdent, "abcd")
@@ -92,4 +94,16 @@ func TestMatchers(t *testing.T) {
 	checkMatch("{", TokenOpenBrace, "{")
 	// checkMatch("\uFEFF", TokenBOM, "\uFEFF")
 	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, "stuff")
+
+	checkMatch("foo { bar: rgb(255, 0, 127); }",
+		TokenIdent, "foo", TokenS, " ",
+		TokenOpenBrace, "{", TokenS, " ",
+		TokenIdent, "bar", TokenColon, ":", TokenS, " ",
+		TokenFunction, "rgb",
+		TokenNumber, "255", TokenComma, ",", TokenS, " ",
+		TokenNumber, "0", TokenComma, ",", TokenS, " ",
+		TokenNumber, "127", TokenCloseParen, ")",
+		TokenSemicolon, ";", TokenS, " ",
+		TokenCloseBrace, "}",
+	)
 }
