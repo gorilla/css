@@ -359,9 +359,10 @@ func (z *Tokenizer) consume() Token {
 		z.err = errBadEscape
 		return premadeTokens['\\']
 	case 'U', 'u':
+		z.unreadByte()
 		z.repeek()
-		if z.peek[0] == '+' && (isHexDigit(z.peek[1]) || (z.peek[1] == '?')) {
-			z.r.Discard(1) // (!) only discard the plus sign
+		if z.peek[1] == '+' && (isHexDigit(z.peek[2]) || (z.peek[2] == '?')) {
+			z.r.Discard(2) // (!) only discard the U+
 			return z.consumeUnicodeRange()
 		}
 		break

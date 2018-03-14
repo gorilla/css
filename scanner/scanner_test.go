@@ -106,4 +106,6 @@ func TestMatchers(t *testing.T) {
 		TokenSemicolon, ";", TokenS, " ",
 		TokenCloseBrace, "}",
 	)
+	// Fuzzing results
+	checkMatch("ur(0", TokenFunction, "ur", TokenNumber, "0")
 }
