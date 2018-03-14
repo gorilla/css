@@ -5,22 +5,9 @@
 package scanner
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 )
-
-func Fuzz(b []byte) int {
-	tz := NewTokenizer(bytes.NewReader(b))
-	for {
-		tt := tz.Next()
-		fmt.Printf("%v\n", tt)
-		if tt.Type.StopToken() {
-			break
-		}
-	}
-	return 1
-}
 
 func TestMatchers(t *testing.T) {
 	// Just basic checks, not exhaustive at all.
@@ -87,6 +74,8 @@ func TestMatchers(t *testing.T) {
 		TokenURI, "http://domain.com/uri/2",
 	)
 	checkMatch("U+0042", TokenUnicodeRange, "U+0042")
+	checkMatch("U+FFFFFF", TokenUnicodeRange, "U+FFFFFF")
+	checkMatch("U+??????", TokenUnicodeRange, "U+0000-FFFFFF")
 	checkMatch("<!--", TokenCDO, "<!--")
 	checkMatch("-->", TokenCDC, "-->")
 	checkMatch("   \n   \t   \n", TokenS, "\n") // TODO - whitespace preservation

@@ -717,11 +717,12 @@ func (z *Tokenizer) consumeUnicodeRange() Token {
 		elen = slen
 	}
 
-	startCP, err := strconv.ParseInt(string(sdigits[:slen]), 16, 22)
+	// 16 = hex, 32 = int32
+	startCP, err := strconv.ParseInt(string(sdigits[:slen]), 16, 32)
 	if err != nil {
 		panic(fmt.Sprintf("ParseInt failure: %s", err))
 	}
-	endCP, err := strconv.ParseInt(string(edigits[:elen]), 16, 22)
+	endCP, err := strconv.ParseInt(string(edigits[:elen]), 16, 32)
 	if err != nil {
 		panic(fmt.Sprintf("ParseInt failure: %s", err))
 	}
@@ -786,7 +787,7 @@ func (z *Tokenizer) consumeEscapedCP() rune {
 		}
 		digits = digits[:i]
 		// 16 = hex, 22 = bit width of unicode
-		cpi, err := strconv.ParseInt(string(digits), 16, 22)
+		cpi, err := strconv.ParseInt(string(digits), 16, 32)
 		if err != nil || cpi == 0 || cpi > utf8.MaxRune {
 			return utf8.RuneError
 		}
