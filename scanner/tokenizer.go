@@ -305,7 +305,7 @@ func (z *Tokenizer) consume() Token {
 		if z.nextIsNumber() {
 			return z.consumeNumeric()
 		}
-		z.readByte() // re-read, fall down to TokenDelim
+		z.nextByte() // re-read, fall down to TokenDelim
 	case '-':
 		z.unreadByte()
 		z.repeek()
@@ -319,14 +319,14 @@ func (z *Tokenizer) consume() Token {
 			z.r.Discard(2)
 			return premadeTokens['C']
 		}
-		z.readByte() // re-read, fall down to TokenDelim
+		z.nextByte() // re-read, fall down to TokenDelim
 	case '.':
 		z.unreadByte()
 		z.repeek()
 		if z.nextIsNumber() {
 			return z.consumeNumeric()
 		}
-		z.readByte() // re-read, fall down to TokenDelim
+		z.nextByte() // re-read, fall down to TokenDelim
 	case '/':
 		z.repeek()
 		if z.peek[0] == '*' {
@@ -355,7 +355,7 @@ func (z *Tokenizer) consume() Token {
 			// input stream has a valid escape
 			return z.consumeIdentish()
 		}
-		z.readByte()
+		z.nextByte()
 		z.err = errBadEscape
 		return premadeTokens['\\']
 	case 'U', 'u':
@@ -494,10 +494,11 @@ func (z *Tokenizer) consumeIdentish() Token {
 			Type:  TokenFunction,
 			Value: s,
 		}
-	}
-	return Token{
-		Type:  TokenIdent,
-		Value: s,
+	} else {
+		return Token{
+			Type:  TokenIdent,
+			Value: s,
+		}
 	}
 }
 
@@ -525,14 +526,18 @@ func (z *Tokenizer) consumeString(delim byte) Token {
 				Extra: &TokenExtraError{Err: z.err},
 			}
 		} else if by == '\\' {
+			z.unreadByte()
 			z.repeek()
-			if z.peek[0] == 0 {
+			if z.peek[1] == 0 {
 				// escape @ EOF, ignore.
-			} else if z.peek[0] == '\n' {
+				z.nextByte() // '\'
+			} else if z.peek[1] == '\n' {
 				// valid escaped newline, ignore.
-				z.r.Discard(1)
+				z.nextByte() // '\'
+				z.nextByte() // newline
 			} else if true {
 				// stream will always contain a valid escape here
+				z.nextByte() // '\'
 				cp := z.consumeEscapedCP()
 				var tmp [utf8.UTFMax]byte
 				n := utf8.EncodeRune(tmp[:], cp)
@@ -629,8 +634,10 @@ func (z *Tokenizer) consumeURL() Token {
 				Extra: &TokenExtraError{Err: z.err},
 			}
 		} else if by == '\\' {
+			z.unreadByte()
 			z.repeek()
-			if z.peek[0] != '\n' && z.peek[0] != 0 {
+			if z.nextIsEscape() {
+				z.nextByte() // '\'
 				cp := z.consumeEscapedCP()
 				var tmp [utf8.UTFMax]byte
 				n := utf8.EncodeRune(tmp[:], cp)
@@ -804,20 +811,25 @@ func (z *Tokenizer) consumeName() string {
 	for {
 		by = z.nextByte()
 		if by == '\\' {
+			z.unreadByte()
 			z.repeek()
-			if z.peek[0] != '\n' && z.peek[0] != 0 {
+			if z.nextIsEscape() {
+				z.nextByte()
 				cp := z.consumeEscapedCP()
 				var tmp [utf8.UTFMax]byte
 				n := utf8.EncodeRune(tmp[:], cp)
 				frag = append(frag, tmp[:n]...)
 				continue
+			} else {
+				return string(frag)
 			}
 		} else if isNameCode(by) {
 			frag = append(frag, by)
 			continue
+		} else {
+			z.unreadByte()
+			return string(frag)
 		}
-
-		return string(frag)
 	}
 }
 
@@ -879,8 +891,10 @@ func (z *Tokenizer) consumeBadURL() string {
 		if by == ')' || by == 0 {
 			return string(frag)
 		} else if by == '\\' {
+			z.unreadByte()
 			z.repeek()
-			if z.peek[0] != '\n' {
+			if z.nextIsEscape() {
+				z.nextByte() // '\'
 				// Allow for escaped right paren "\)"
 				cp := z.consumeEscapedCP()
 				var tmp [utf8.UTFMax]byte
@@ -888,6 +902,7 @@ func (z *Tokenizer) consumeBadURL() string {
 				frag = append(frag, tmp[:n]...)
 				continue
 			}
+			z.nextByte() // '\'
 		}
 		frag = append(frag, by)
 	}
