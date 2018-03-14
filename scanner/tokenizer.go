@@ -316,7 +316,7 @@ func (z *Tokenizer) consume() Token {
 			return z.consumeIdentish()
 		}
 		if z.nextCompare("-->") {
-			z.r.Discard(2)
+			z.r.Discard(3)
 			return premadeTokens['C']
 		}
 		z.nextByte() // re-read, fall down to TokenDelim
@@ -560,7 +560,9 @@ func (z *Tokenizer) consumeURL() Token {
 			Value: "",
 		}
 	} else if z.peek[0] == '\'' || z.peek[0] == '"' {
-		t := z.consumeString(z.peek[0])
+		delim := z.peek[0]
+		z.nextByte()
+		t := z.consumeString(delim)
 		if t.Type == TokenBadString {
 			t.Type = TokenBadURI
 			t.Value += z.consumeBadURL()
@@ -745,13 +747,13 @@ func (z *Tokenizer) consumeComment() Token {
 				z.nextByte() // '/'
 				return Token{
 					Type:  TokenComment,
-					Value: "/*" + string(frag) + "*/",
+					Value: string(frag),
 				}
 			}
 		} else if by == 0 {
 			return Token{
 				Type:  TokenComment,
-				Value: "/*" + string(frag) + "*/",
+				Value: string(frag),
 			}
 		}
 		frag = append(frag, by)

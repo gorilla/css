@@ -5,9 +5,22 @@
 package scanner
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
+
+func Fuzz(b []byte) int {
+	tz := NewTokenizer(bytes.NewReader(b))
+	for {
+		tt := tz.Next()
+		fmt.Printf("%v\n", tt)
+		if tt.Type.StopToken() {
+			break
+		}
+	}
+	return 1
+}
 
 func TestMatchers(t *testing.T) {
 	// Just basic checks, not exhaustive at all.
@@ -54,31 +67,40 @@ func TestMatchers(t *testing.T) {
 	checkMatch("42%", TokenPercentage, "42")
 	checkMatch("4.2%", TokenPercentage, "4.2")
 	checkMatch(".42%", TokenPercentage, ".42")
-	checkMatch("42px", TokenDimension, "42px")
-	checkMatch("url(http://domain.com)", TokenURI, "url(http://domain.com)")
-	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "url( http://domain.com/uri/between/space )")
-	checkMatch("url('http://domain.com/uri/between/single/quote')", TokenURI, "url('http://domain.com/uri/between/single/quote')")
-	checkMatch(`url("http://domain.com/uri/between/double/quote")`, TokenURI, `url("http://domain.com/uri/between/double/quote")`)
-	checkMatch("url(http://domain.com/?parentheses=%28)", TokenURI, "url(http://domain.com/?parentheses=%28)")
-	checkMatch("url( http://domain.com/?parentheses=%28&between=space )", TokenURI, "url( http://domain.com/?parentheses=%28&between=space )")
-	checkMatch("url('http://domain.com/uri/(parentheses)/between/single/quote')", TokenURI, "url('http://domain.com/uri/(parentheses)/between/single/quote')")
-	checkMatch(`url("http://domain.com/uri/(parentheses)/between/double/quote")`, TokenURI, `url("http://domain.com/uri/(parentheses)/between/double/quote")`)
+	checkMatch("42px", TokenDimension, "42") // TODO check the dimension stored in .Extra
+	checkMatch("url(http://domain.com)", TokenURI, "http://domain.com")
+	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "http://domain.com/uri/between/space")
+	checkMatch("url('http://domain.com/uri/between/single/quote')", TokenURI, "http://domain.com/uri/between/single/quote")
+	checkMatch(`url("http://domain.com/uri/between/double/quote")`, TokenURI, `http://domain.com/uri/between/double/quote`)
+	checkMatch("url(http://domain.com/?parentheses=%28)", TokenURI, "http://domain.com/?parentheses=%28")
+	checkMatch("url( http://domain.com/?parentheses=%28&between=space )", TokenURI, "http://domain.com/?parentheses=%28&between=space")
+	checkMatch("url('http://domain.com/uri/(parentheses)/between/single/quote')", TokenURI, "http://domain.com/uri/(parentheses)/between/single/quote")
+	checkMatch(`url("http://domain.com/uri/(parentheses)/between/double/quote")`, TokenURI, `http://domain.com/uri/(parentheses)/between/double/quote`)
+	checkMatch(`url(http://domain.com/uri/\(bare%20escaped\)/parentheses)`, TokenURI, `http://domain.com/uri/(bare%20escaped)/parentheses`)
 	checkMatch("url(http://domain.com/uri/1)url(http://domain.com/uri/2)",
-		TokenURI, "url(http://domain.com/uri/1)",
-		TokenURI, "url(http://domain.com/uri/2)",
+		TokenURI, "http://domain.com/uri/1",
+		TokenURI, "http://domain.com/uri/2",
+	)
+	checkMatch("url(http://domain.com/uri/1) url(http://domain.com/uri/2)",
+		TokenURI, "http://domain.com/uri/1",
+		TokenS, " ",
+		TokenURI, "http://domain.com/uri/2",
 	)
 	checkMatch("U+0042", TokenUnicodeRange, "U+0042")
 	checkMatch("<!--", TokenCDO, "<!--")
 	checkMatch("-->", TokenCDC, "-->")
-	checkMatch("   \n   \t   \n", TokenS, "   \n   \t   \n")
-	checkMatch("/* foo */", TokenComment, "/* foo */")
+	checkMatch("   \n   \t   \n", TokenS, "\n") // TODO - whitespace preservation
+	checkMatch("/**/", TokenComment, "")
+	checkMatch("/*foo*/", TokenComment, "foo")
+	checkMatch("/* foo */", TokenComment, " foo ")
 	checkMatch("bar(", TokenFunction, "bar")
 	checkMatch("~=", TokenIncludes, "~=")
 	checkMatch("|=", TokenDashMatch, "|=")
+	checkMatch("||", TokenColumn, "||")
 	checkMatch("^=", TokenPrefixMatch, "^=")
 	checkMatch("$=", TokenSuffixMatch, "$=")
 	checkMatch("*=", TokenSubstringMatch, "*=")
-	checkMatch("{", TokenChar, "{")
+	checkMatch("{", TokenOpenBrace, "{")
 	// checkMatch("\uFEFF", TokenBOM, "\uFEFF")
-	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, `"stuff"`)
+	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, "stuff")
 }
