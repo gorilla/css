@@ -5,6 +5,7 @@
 package scanner
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -18,11 +19,24 @@ func TestMatchers(t *testing.T) {
 		for i < len(ttList) {
 			tt := ttList[i].(TokenType)
 			tVal := ttList[i+1].(string)
+			var tExtra TokenExtra
+			if TokenExtraTypeLookup[tt] != nil {
+				tExtra = ttList[i+2].(TokenExtra)
+			}
 			if tok := tz.Next(); tok.Type != tt || tok.Value != tVal {
 				t.Errorf("did not match: %s (got %s, wanted %s): %v", s, tok.Value, tVal, tok)
+			} else if tExtra != nil && !reflect.DeepEqual(tok.Extra, tExtra) {
+				if tt.StopToken() && tt != TokenError && tt != TokenEOF {
+					// mismatch ok
+				} else {
+					t.Errorf("did not match .Extra: %s (got %#v, wanted %#v): %v", s, tok.Extra, tExtra, tok)
+				}
 			}
 
 			i += 2
+			if TokenExtraTypeLookup[tt] != nil {
+				i++
+			}
 		}
 
 		if tok := tz.Next(); tok.Type != TokenEOF {
@@ -44,19 +58,21 @@ func TestMatchers(t *testing.T) {
 	checkMatch(`'ab"cd'`, TokenString, `ab"cd`)
 	checkMatch(`'ab\'cd'`, TokenString, `ab'cd`)
 	checkMatch(`'ab\\cd'`, TokenString, `ab\cd`)
-	checkMatch("#name", TokenHash, "name")
-	checkMatch("##name", TokenDelim, "#", TokenHash, "name")
-	checkMatch("42''", TokenNumber, "42", TokenString, "")
-	checkMatch("+42", TokenNumber, "+42")
-	checkMatch("-42", TokenNumber, "-42")
-	checkMatch("4.2", TokenNumber, "4.2")
-	checkMatch(".42", TokenNumber, ".42")
-	checkMatch("+.42", TokenNumber, "+.42")
-	checkMatch("-.42", TokenNumber, "-.42")
-	checkMatch("42%", TokenPercentage, "42")
-	checkMatch("4.2%", TokenPercentage, "4.2")
-	checkMatch(".42%", TokenPercentage, ".42")
-	checkMatch("42px", TokenDimension, "42") // TODO check the dimension stored in .Extra
+	checkMatch("#name", TokenHash, "name", &TokenExtraHash{IsIdentifier: true})
+	checkMatch("##name", TokenDelim, "#", TokenHash, "name", &TokenExtraHash{IsIdentifier: true})
+	checkMatch("42''", TokenNumber, "42", &TokenExtraNumeric{}, TokenString, "")
+	checkMatch("+42", TokenNumber, "+42", &TokenExtraNumeric{})
+	checkMatch("-42", TokenNumber, "-42", &TokenExtraNumeric{})
+	checkMatch("42.", TokenNumber, "42", &TokenExtraNumeric{}, TokenDelim, ".")
+	checkMatch("42.0", TokenNumber, "42.0", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("4.2", TokenNumber, "4.2", &TokenExtraNumeric{NonInteger: true})
+	checkMatch(".42", TokenNumber, ".42", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("+.42", TokenNumber, "+.42", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("-.42", TokenNumber, "-.42", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("42%", TokenPercentage, "42", &TokenExtraNumeric{})
+	checkMatch("4.2%", TokenPercentage, "4.2", &TokenExtraNumeric{NonInteger: true})
+	checkMatch(".42%", TokenPercentage, ".42", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("42px", TokenDimension, "42", &TokenExtraNumeric{Dimension: "px"}) // TODO check the dimension stored in .Extra
 	checkMatch("url(http://domain.com)", TokenURI, "http://domain.com")
 	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "http://domain.com/uri/between/space")
 	checkMatch("url('http://domain.com/uri/between/single/quote')", TokenURI, "http://domain.com/uri/between/single/quote")
@@ -75,9 +91,9 @@ func TestMatchers(t *testing.T) {
 		TokenS, " ",
 		TokenURI, "http://domain.com/uri/2",
 	)
-	checkMatch("U+0042", TokenUnicodeRange, "U+0042")
-	checkMatch("U+FFFFFF", TokenUnicodeRange, "U+FFFFFF")
-	checkMatch("U+??????", TokenUnicodeRange, "U+0000-FFFFFF")
+	checkMatch("U+0042", TokenUnicodeRange, "U+0042", &TokenExtraUnicodeRange{Start: 0x42, End: 0x42})
+	checkMatch("U+FFFFFF", TokenUnicodeRange, "U+FFFFFF", &TokenExtraUnicodeRange{Start: 0xFFFFFF, End: 0xFFFFFF})
+	checkMatch("U+??????", TokenUnicodeRange, "U+0000-FFFFFF", &TokenExtraUnicodeRange{Start: 0, End: 0xFFFFFF})
 	checkMatch("<!--", TokenCDO, "<!--")
 	checkMatch("-->", TokenCDC, "-->")
 	checkMatch("   \n   \t   \n", TokenS, "\n") // TODO - whitespace preservation
@@ -100,12 +116,15 @@ func TestMatchers(t *testing.T) {
 		TokenOpenBrace, "{", TokenS, " ",
 		TokenIdent, "bar", TokenColon, ":", TokenS, " ",
 		TokenFunction, "rgb",
-		TokenNumber, "255", TokenComma, ",", TokenS, " ",
-		TokenNumber, "0", TokenComma, ",", TokenS, " ",
-		TokenNumber, "127", TokenCloseParen, ")",
+		TokenNumber, "255", &TokenExtraNumeric{}, TokenComma, ",", TokenS, " ",
+		TokenNumber, "0", &TokenExtraNumeric{}, TokenComma, ",", TokenS, " ",
+		TokenNumber, "127", &TokenExtraNumeric{}, TokenCloseParen, ")",
 		TokenSemicolon, ";", TokenS, " ",
 		TokenCloseBrace, "}",
 	)
 	// Fuzzing results
-	checkMatch("ur(0", TokenFunction, "ur", TokenNumber, "0")
+	checkMatch("ur(0", TokenFunction, "ur", TokenNumber, "0", &TokenExtraNumeric{})
+	checkMatch("1\\15", TokenDimension, "1", &TokenExtraNumeric{Dimension: "\x15"})
+	checkMatch("url(0t')", TokenBadURI, "0t", &TokenExtraError{})
+	checkMatch("uri/", TokenIdent, "uri", TokenDelim, "/")
 }

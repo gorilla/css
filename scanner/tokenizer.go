@@ -25,8 +25,16 @@ type Tokenizer struct {
 	err  error
 	peek [3]byte
 
+	ErrorMode int
+
 	tok Token
 }
+
+const (
+	// Default error mode - tokenization errors are represented as special tokens in the stream, and I/O errors are TokenError.
+	ErrorModeTokens = iota
+	ErrorModeFatal
+)
 
 // Construct a Tokenizer from the given input. Input need not be normalized.
 func NewTokenizer(r io.Reader) *Tokenizer {
@@ -89,7 +97,8 @@ func (z *Tokenizer) Err() error {
 func (z *Tokenizer) AcknowledgeError() {
 	_, ok := z.err.(*ParseError)
 	if !ok {
-		panic("cssparse: AcknowledgeError() called for a foreign (non-syntax) error")
+		// TODO ErrorMode
+		return
 	}
 	z.err = nil
 }
@@ -201,6 +210,10 @@ func isStartNumber(p []byte) bool {
 		return true
 	}
 	return false
+}
+
+func isNonPrintable(by byte) bool {
+	return (0 <= by && by <= 0x08) || (0x0B == by) || (0x0E <= by && by <= 0x1F) || (0x7F == by)
 }
 
 // repeek must be called before the following:
@@ -356,7 +369,7 @@ func (z *Tokenizer) consume() Token {
 			return z.consumeIdentish()
 		}
 		z.nextByte()
-		z.err = errBadEscape
+		// z.err = errBadEscape
 		return premadeTokens['\\']
 	case 'U', 'u':
 		z.unreadByte()
@@ -517,14 +530,14 @@ func (z *Tokenizer) consumeString(delim byte) Token {
 			}
 		} else if by == '\n' {
 			z.unreadByte()
-			z.err = &ParseError{
+			/* z.err = */ er := &ParseError{
 				Type:    TokenBadString,
 				Message: "unterminated string",
 			}
 			return Token{
 				Type:  TokenBadString,
 				Value: string(frag),
-				Extra: &TokenExtraError{Err: z.err},
+				Extra: &TokenExtraError{Err: er},
 			}
 		} else if by == '\\' {
 			z.unreadByte()
@@ -567,12 +580,12 @@ func (z *Tokenizer) consumeURL() Token {
 		if t.Type == TokenBadString {
 			t.Type = TokenBadURI
 			t.Value += z.consumeBadURL()
-			z.err = &ParseError{
+			/* z.err = */ pe := &ParseError{
 				Type:    TokenBadURI,
 				Message: "unterminated string in url()",
 			}
 			t.Extra = &TokenExtraError{
-				Err: z.err,
+				Err: pe,
 			}
 			return t
 		}
@@ -585,12 +598,12 @@ func (z *Tokenizer) consumeURL() Token {
 		}
 		t.Type = TokenBadURI
 		t.Value += z.consumeBadURL()
-		z.err = &ParseError{
+		/* z.err = */ pe := &ParseError{
 			Type:    TokenBadURI,
 			Message: "url() with string missing close parenthesis",
 		}
 		t.Extra = &TokenExtraError{
-			Err: z.err,
+			Err: pe,
 		}
 		return t
 	}
@@ -607,34 +620,34 @@ func (z *Tokenizer) consumeURL() Token {
 				z.nextByte() // ')'
 				return Token{Type: TokenURI, Value: string(frag)}
 			}
-			z.err = &ParseError{
+			/* z.err = */ pe := &ParseError{
 				Type:    TokenBadURI,
 				Message: "bare url() with internal whitespace",
 			}
 			return Token{
 				Type:  TokenBadURI,
 				Value: string(frag) + z.consumeBadURL(),
-				Extra: &TokenExtraError{Err: z.err},
+				Extra: &TokenExtraError{Err: pe},
 			}
 		} else if by == '\'' || by == '"' || by == '(' {
-			z.err = &ParseError{
+			/* z.err = */ pe := &ParseError{
 				Type:    TokenBadURI,
 				Message: fmt.Sprintf("bare url() with illegal character '%c'", by),
 			}
 			return Token{
 				Type:  TokenBadURI,
 				Value: string(frag) + z.consumeBadURL(),
-				Extra: &TokenExtraError{Err: z.err},
+				Extra: &TokenExtraError{Err: pe},
 			}
-		} else if (0 <= by && by <= 0x08) || (0x0B == by) || (0x0E <= by && by <= 0x1F) || (0x7F == by) {
-			z.err = &ParseError{
+		} else if isNonPrintable(by) {
+			/* z.err = */ pe := &ParseError{
 				Type:    TokenBadURI,
 				Message: fmt.Sprintf("bare url() with unprintable character '%d'", by),
 			}
 			return Token{
 				Type:  TokenBadURI,
 				Value: string(frag) + z.consumeBadURL(),
-				Extra: &TokenExtraError{Err: z.err},
+				Extra: &TokenExtraError{Err: pe},
 			}
 		} else if by == '\\' {
 			z.unreadByte()
@@ -646,14 +659,14 @@ func (z *Tokenizer) consumeURL() Token {
 				n := utf8.EncodeRune(tmp[:], cp)
 				frag = append(frag, tmp[:n]...)
 			} else {
-				z.err = &ParseError{
+				/* z.err = */ pe := &ParseError{
 					Type:    TokenBadURI,
 					Message: fmt.Sprintf("bare url() with invalid escape"),
 				}
 				return Token{
 					Type:  TokenBadURI,
 					Value: string(frag) + z.consumeBadURL(),
-					Extra: &TokenExtraError{Err: z.err},
+					Extra: &TokenExtraError{Err: pe},
 				}
 			}
 		} else {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 // TokenType identifies the type of lexical tokens.
@@ -194,10 +195,7 @@ func (e *TokenExtraNumeric) String() string {
 	if e == nil {
 		return ""
 	}
-	if e.Dimension != "" {
-		return e.Dimension
-	}
-	return ""
+	return e.Dimension
 }
 
 // TokenExtraUnicodeRange is attached to a TokenUnicodeRange.
@@ -248,19 +246,81 @@ func (e *TokenExtraError) ParseError() *ParseError {
 	return pe
 }
 
-func escapeIdentifier(s string) string {
-	// TODO
-	return s
-}
+func escapeIdentifier(s string) string { return escapeIdent(s, 0) }
+func escapeDimension(s string) string  { return escapeIdent(s, 2) }
 
-func escapeDimension(s string) string {
-	if strings.HasPrefix(s, "e") || strings.HasPrefix(s, "E") {
-		return "\\" + escapeIdentifier(s)
+func escapeIdent(s string, mode int) string {
+	if s == "" {
+		return ""
 	}
-	return escapeIdentifier(s)
+	var buf bytes.Buffer
+	buf.Grow(len(s))
+	anyChanges := false
+
+	// Handle first character
+	// dashes allowed at start only for TokenIdent-ish
+	// eE not allowed at start for Dimension
+	if !isNameStart(s[0]) && s[0] != '-' && s[0] != 'e' && s[0] != 'E' {
+		buf.WriteByte('\\')
+		buf.WriteByte(s[0])
+		anyChanges = true
+	} else if s[0] == 'e' || s[0] == 'E' {
+		if mode == 2 {
+			buf.WriteByte('\\')
+			anyChanges = true
+		}
+		buf.WriteByte(s[0])
+	} else if s[0] == '-' {
+		if len(s) == 1 {
+			return "\\-"
+		} else if isNameStart(s[1]) {
+			buf.WriteByte('-')
+		} else {
+			buf.WriteString("\\-")
+		}
+	} else {
+		buf.WriteByte(s[0])
+	}
+	// Write the rest of the name
+	for i := 1; i < len(s); i++ {
+		if !isNameCode(s[i]) {
+			fmt.Fprintf(&buf, "\\%X", s[i])
+			anyChanges = true
+		} else {
+			buf.WriteByte(s[i])
+		}
+	}
+
+	if !anyChanges {
+		return s
+	}
+	return buf.String()
 }
 
-var escapeStringReplacer = strings.NewReplacer("\"", "\\\"", "\n", "\\0A ", "\\", "\\\\")
+func escapeString(s string) string {
+	var buf bytes.Buffer
+	buf.WriteByte('"')
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '"':
+			buf.WriteString("\\\"")
+			continue
+		case '\n':
+			buf.WriteString("\\0A ")
+			continue
+		case '\\':
+			buf.WriteString("\\\\")
+			continue
+		}
+		if s[i] < utf8.RuneSelf && isNonPrintable(s[i]) {
+			fmt.Fprintf(&buf, "\\%X", s[i])
+			continue
+		}
+		buf.WriteByte(s[i])
+	}
+	buf.WriteByte('"')
+	return buf.String()
+}
 
 func (t *Token) Render() string {
 	var buf bytes.Buffer
@@ -291,26 +351,35 @@ func (t *Token) WriteTo(w io.Writer) {
 		fmt.Fprint(w, t.Value, "%")
 	case TokenDimension:
 		e := t.Extra.(*TokenExtraNumeric)
-		fmt.Fprint(w, t.Value, e.Dimension)
+		fmt.Fprint(w, t.Value, escapeDimension(e.Dimension))
 	case TokenString:
-		io.WriteString(w, "\"")
-		escapeStringReplacer.WriteString(w, t.Value)
-		io.WriteString(w, "\"")
+		io.WriteString(w, escapeString(t.Value))
 	case TokenURI:
-		io.WriteString(w, "url(\"")
-		escapeStringReplacer.WriteString(w, t.Value)
-		io.WriteString(w, "\")")
+		io.WriteString(w, "url(")
+		io.WriteString(w, escapeString(t.Value))
+		io.WriteString(w, ")")
 	case TokenUnicodeRange:
-		fmt.Fprint(w, t.Extra.String())
+		io.WriteString(w, t.Extra.String())
 	case TokenComment:
 		io.WriteString(w, "/*")
 		io.WriteString(w, t.Value)
 		io.WriteString(w, "/*")
 	case TokenFunction:
-		fmt.Fprint(w, t.Value, "(")
+		io.WriteString(w, t.Value)
+		io.WriteString(w, "(")
 
-	case TokenBadEscape, TokenBadString, TokenBadURI:
-		fmt.Fprint(w, t.Value)
+	case TokenBadEscape:
+		io.WriteString(w, "\\\n")
+	case TokenBadString:
+		io.WriteString(w, "\"")
+		io.WriteString(w, t.Value)
+		io.WriteString(w, "\n")
+	case TokenBadURI:
+		io.WriteString(w, "url(")
+		str := escapeString(t.Value)
+		str = strings.TrimSuffix(str, "\"")
+		io.WriteString(w, str)
+		io.WriteString(w, "\n)")
 	default:
 		fmt.Fprint(w, t.Value)
 	}

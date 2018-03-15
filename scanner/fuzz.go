@@ -75,11 +75,11 @@ func Fuzz(b []byte) int {
 		if tt.Type != ot.Type {
 			panic(fmt.Sprintf("retokenizer gave %v, expected %v (.Type not equal)\n%v", tt, ot, tokens))
 		}
-		if tt.Value != ot.Value {
+		if tt.Value != ot.Value && !tt.Type.StopToken() {
 			panic(fmt.Sprintf("retokenizer gave %v, expected %v (.Value not equal)\n%v", tt, ot, tokens))
 		}
 		if TokenExtraTypeLookup[tt.Type] != nil {
-			if !reflect.DeepEqual(tt, ot) {
+			if !reflect.DeepEqual(tt, ot) && !tt.Type.StopToken() {
 				panic(fmt.Sprintf("retokenizer gave %v, expected %v (.Extra not equal)\n%v", tt, ot, tokens))
 			}
 		}
