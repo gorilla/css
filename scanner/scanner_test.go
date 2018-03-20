@@ -23,7 +23,9 @@ func TestMatchers(t *testing.T) {
 			if TokenExtraTypeLookup[tt] != nil {
 				tExtra = ttList[i+2].(TokenExtra)
 			}
-			if tok := tz.Next(); tok.Type != tt || tok.Value != tVal {
+			if tok := tz.Next(); tok.Type != tt {
+				t.Errorf("did not match: %s (got %v, wanted %v)", s, tok, tt)
+			} else if tok.Value != tVal {
 				t.Errorf("did not match: %s (got %s, wanted %s): %v", s, tok.Value, tVal, tok)
 			} else if tExtra != nil && !reflect.DeepEqual(tok.Extra, tExtra) {
 				if tt.StopToken() && tt != TokenError && tt != TokenEOF {
@@ -127,4 +129,14 @@ func TestMatchers(t *testing.T) {
 	checkMatch("1\\15", TokenDimension, "1", &TokenExtraNumeric{Dimension: "\x15"})
 	checkMatch("url(0t')", TokenBadURI, "0t", &TokenExtraError{})
 	checkMatch("uri/", TokenIdent, "uri", TokenDelim, "/")
+	checkMatch("\x00", TokenIdent, "\uFFFD")
+	checkMatch("a\\0", TokenIdent, "a\uFFFD")
+	checkMatch("b\\\\0", TokenIdent, "b\\0")
+	checkMatch("00\\d", TokenDimension, "00", &TokenExtraNumeric{Dimension: "\r"})
+	// note: \f is form feed, which is 0x0C
+	checkMatch("\\0\\0\\C\\\f\\\\0",
+		TokenIdent, "\uFFFD\uFFFD\x0C\x0C\\0")
+	// String running to EOF is success, not badstring
+	checkMatch("\"a0\\d", TokenString, "a0\x0D")
+	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
 }

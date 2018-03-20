@@ -261,8 +261,12 @@ func escapeIdent(s string, mode int) string {
 	// dashes allowed at start only for TokenIdent-ish
 	// eE not allowed at start for Dimension
 	if !isNameStart(s[0]) && s[0] != '-' && s[0] != 'e' && s[0] != 'E' {
-		buf.WriteByte('\\')
-		buf.WriteByte(s[0])
+		if isNonPrintable(s[0]) || s[0] == '\r' || s[0] == '\n' {
+			fmt.Fprintf(&buf, "\\%X ", s[0])
+		} else {
+			buf.WriteByte('\\')
+			buf.WriteByte(s[0])
+		}
 		anyChanges = true
 	} else if s[0] == 'e' || s[0] == 'E' {
 		if mode == 2 {
@@ -284,7 +288,7 @@ func escapeIdent(s string, mode int) string {
 	// Write the rest of the name
 	for i := 1; i < len(s); i++ {
 		if !isNameCode(s[i]) {
-			fmt.Fprintf(&buf, "\\%X", s[i])
+			fmt.Fprintf(&buf, "\\%X ", s[i])
 			anyChanges = true
 		} else {
 			buf.WriteByte(s[i])
@@ -307,6 +311,9 @@ func escapeString(s string) string {
 			continue
 		case '\n':
 			buf.WriteString("\\0A ")
+			continue
+		case '\r':
+			buf.WriteString("\\0D ")
 			continue
 		case '\\':
 			buf.WriteString("\\\\")
