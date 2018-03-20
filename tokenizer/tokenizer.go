@@ -1,6 +1,6 @@
 // Copyright (c) 2018 Kane York. Licensed under 2-Clause BSD.
 
-package scanner
+package tokenizer
 
 import (
 	"bufio"

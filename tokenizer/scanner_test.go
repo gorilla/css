@@ -1,8 +1,9 @@
+// Copyright 2018 Kane York.
 // Copyright 2012 The Gorilla Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package scanner
+package tokenizer
 
 import (
 	"reflect"
@@ -150,4 +151,5 @@ func TestMatchers(t *testing.T) {
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
 	checkMatch("\\fun(", TokenFunction, "\x0fun")
 	checkMatch("\"abc\\\"def\nghi", TokenBadString, "abc\"def", &TokenExtraError{}, TokenS, "\n", TokenIdent, "ghi")
+	checkMatch("---\\\x18-00", TokenDelim, "-", TokenDelim, "-", TokenIdent, "-\x18-00")
 }

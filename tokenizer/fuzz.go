@@ -1,4 +1,6 @@
-package scanner
+// Copyright 2018 Kane York.
+
+package tokenizer
 
 import (
 	"bytes"
