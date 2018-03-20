@@ -25,18 +25,22 @@ type Tokenizer struct {
 	err  error
 	peek [3]byte
 
-	ErrorMode int
+	// ErrorMode int
 
 	tok Token
 }
 
+/*
 const (
 	// Default error mode - tokenization errors are represented as special tokens in the stream, and I/O errors are TokenError.
 	ErrorModeTokens = iota
 	ErrorModeFatal
 )
+*/
 
-// Construct a Tokenizer from the given input. Input need not be normalized.
+// Construct a Tokenizer from the given input.  Input need not be 'normalized'
+// according to the spec (newlines changed to \n, zero bytes changed to
+// U+FFFD).
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
 		r: bufio.NewReader(transform.NewReader(r, new(normalize))),
@@ -44,7 +48,7 @@ func NewTokenizer(r io.Reader) *Tokenizer {
 }
 
 // Scan for the next token.  If the tokenizer is in an error state, no input
-// will be consumed, and .AcknowledgeError() should be called instead.
+// will be consumed.
 func (z *Tokenizer) Scan() {
 	defer func() {
 		rec := recover()
@@ -75,32 +79,21 @@ func (z *Tokenizer) Scan() {
 	}
 }
 
-// Return the current token.
+// Get the most recently scanned token.
 func (z *Tokenizer) Token() Token {
 	return z.tok
 }
 
-// Combines the calls to Scan() and Token().
+// Scan for the next token and return it.
 func (z *Tokenizer) Next() Token {
 	z.Scan()
 	return z.tok
 }
 
-// Err returns the last error to be encountered and not cleared.
+// Err returns the last input reading error to be encountered. It is filled
+// when TokenError is returned.
 func (z *Tokenizer) Err() error {
 	return z.err
-}
-
-// Acknowledge a returned error token.  This can only be called to clear
-// TokenBadString, TokenBadURI, and TokenBadEscape.  Using it for non-parsing
-// errors will panic.
-func (z *Tokenizer) AcknowledgeError() {
-	_, ok := z.err.(*ParseError)
-	if !ok {
-		// TODO ErrorMode
-		return
-	}
-	z.err = nil
 }
 
 // repeek reads the next 3 bytes into the tokenizer. on EOF, the bytes are

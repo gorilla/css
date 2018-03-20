@@ -29,17 +29,6 @@ func (t TokenType) StopToken() bool {
 		TokenBadString || t == TokenBadURI
 }
 
-// Simple tokens TODO figure out a useful definition for this.
-func (t TokenType) SimpleToken() bool {
-	if t.StopToken() {
-		return false
-	}
-	if t == TokenHash || t == TokenNumber || t == TokenPercentage || t == TokenDimension || t == TokenUnicodeRange {
-		return false
-	}
-	return true
-}
-
 // ParseError represents a CSS syntax error.
 type ParseError struct {
 	Type    TokenType
@@ -47,16 +36,20 @@ type ParseError struct {
 	Loc     int
 }
 
+// implements error
 func (e *ParseError) Error() string {
 	return e.Message
 }
 
 // Token represents a token in the CSS syntax.
 type Token struct {
-	Type  TokenType
+	Type TokenType
+	// A string representation of the token value that depends on the type.
+	// For example, for a TokenURI, the Value is the URI itself.  For a
+	// TokenPercentage, the Value is the number without the percent sign.
 	Value string
-	// Extra data for the token beyond a simple string.
-	// Will always be a pointer to a "Token*Extra" type in this package.
+	// Extra data for the token beyond a simple string.  Will always be a
+	// pointer to a "TokenExtra*" type in this package.
 	Extra TokenExtra
 }
 
@@ -65,25 +58,27 @@ const (
 	// Scanner flags.
 	TokenError TokenType = iota
 	TokenEOF
-	// From now on, only tokens from the CSS specification.
+
+	// Tokens
 	TokenIdent
 	TokenFunction
+	TokenURI
 	TokenDelim // Single character
 	TokenAtKeyword
 	TokenString
-	TokenHash
-	TokenNumber
-	TokenPercentage
-	TokenDimension
-	TokenURI
-	TokenUnicodeRange
-	TokenCDO
-	TokenCDC
-	// Whitespace
-	TokenS
+	TokenS // Whitespace
 	// CSS Syntax Level 3 removes comments from the token stream, but they are
 	// preserved here.
 	TokenComment
+
+	// Extra data: TokenExtraHash
+	TokenHash
+	// Extra data: TokenExtraNumeric
+	TokenNumber
+	TokenPercentage
+	TokenDimension
+	// Extra data: TokenExtraUnicodeRange
+	TokenUnicodeRange
 
 	// Error tokens
 	TokenBadString
@@ -106,6 +101,8 @@ const (
 	TokenCloseParen
 	TokenOpenBrace
 	TokenCloseBrace
+	TokenCDO
+	TokenCDC
 )
 
 // backwards compatibility
@@ -369,12 +366,14 @@ func escapeString(s string, delim byte) string {
 	return buf.String()
 }
 
+// Attempt to turn the token back into a CSS string.  (Wrapper around WriteTo.)
 func (t *Token) Render() string {
 	var buf bytes.Buffer
 	t.WriteTo(&buf)
 	return buf.String()
 }
 
+// Attempt to turn the token back into a CSS string.
 func (t *Token) WriteTo(w io.Writer) {
 	switch t.Type {
 	case TokenError:
@@ -438,10 +437,14 @@ func (t *Token) WriteTo(w io.Writer) {
 }
 
 // TokenRenderer takes care of the comment insertion rules for serialization.
+// This type is mostly intended for the fuzz test and not for general
+// consumption, but it can be used for that.
 type TokenRenderer struct {
 	lastToken Token
 }
 
+// Write a token to the given io.Writer, potentially inserting an empty comment
+// in front based on what the previous token was.
 func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) {
 	var prevKey, curKey interface{}
 	if r.lastToken.Type == TokenDelim {

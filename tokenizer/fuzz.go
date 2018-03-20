@@ -9,6 +9,7 @@ import (
 	"reflect"
 )
 
+// Entry point for fuzz testing.
 func Fuzz(b []byte) int {
 	fmt.Printf("=== Start fuzz test ===\n%s\n", b)
 	var tokens []Token
