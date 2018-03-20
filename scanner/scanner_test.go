@@ -149,4 +149,5 @@ func TestMatchers(t *testing.T) {
 	checkMatch("\"a0\\d", TokenString, "a0\x0D")
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
 	checkMatch("\\fun(", TokenFunction, "\x0fun")
+	checkMatch("\"abc\\\"def\nghi", TokenBadString, "abc\"def", &TokenExtraError{}, TokenS, "\n", TokenIdent, "ghi")
 }

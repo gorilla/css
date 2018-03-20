@@ -333,13 +333,19 @@ func escapeIdent(s string, mode int) string {
 	return buf.String()
 }
 
-func escapeString(s string) string {
+func escapeString(s string, delim byte) string {
 	var buf bytes.Buffer
-	buf.WriteByte('"')
+	if delim != 0 {
+		buf.WriteByte(delim)
+	}
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '"':
 			buf.WriteString("\\\"")
+			continue
+		case delim:
+			buf.WriteByte('\\')
+			buf.WriteByte(delim)
 			continue
 		case '\n':
 			buf.WriteString("\\0A ")
@@ -357,7 +363,9 @@ func escapeString(s string) string {
 		}
 		buf.WriteByte(s[i])
 	}
-	buf.WriteByte('"')
+	if delim != 0 {
+		buf.WriteByte(delim)
+	}
 	return buf.String()
 }
 
@@ -397,10 +405,10 @@ func (t *Token) WriteTo(w io.Writer) {
 		e := t.Extra.(*TokenExtraNumeric)
 		fmt.Fprint(w, t.Value, escapeDimension(e.Dimension))
 	case TokenString:
-		io.WriteString(w, escapeString(t.Value))
+		io.WriteString(w, escapeString(t.Value, '"'))
 	case TokenURI:
 		io.WriteString(w, "url(")
-		io.WriteString(w, escapeString(t.Value))
+		io.WriteString(w, escapeString(t.Value, '"'))
 		io.WriteString(w, ")")
 	case TokenUnicodeRange:
 		io.WriteString(w, t.Extra.String())
@@ -416,11 +424,11 @@ func (t *Token) WriteTo(w io.Writer) {
 		io.WriteString(w, "\\\n")
 	case TokenBadString:
 		io.WriteString(w, "\"")
-		io.WriteString(w, t.Value)
+		io.WriteString(w, escapeString(t.Value, 0))
 		io.WriteString(w, "\n")
 	case TokenBadURI:
-		io.WriteString(w, "url(")
-		str := escapeString(t.Value)
+		io.WriteString(w, "url(\"")
+		str := escapeString(t.Value, 0)
 		str = strings.TrimSuffix(str, "\"")
 		io.WriteString(w, str)
 		io.WriteString(w, "\n)")
