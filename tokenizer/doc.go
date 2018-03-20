@@ -49,4 +49,4 @@ Note: the scanner doesn't perform lexical analysis or, in other words, it
 doesn't care about the token context. It is intended to be used by a
 lexer or parser.
 */
-package tokenzier
+package tokenizer

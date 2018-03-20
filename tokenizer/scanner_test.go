@@ -151,5 +151,8 @@ func TestMatchers(t *testing.T) {
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
 	checkMatch("\\fun(", TokenFunction, "\x0fun")
 	checkMatch("\"abc\\\"def\nghi", TokenBadString, "abc\"def", &TokenExtraError{}, TokenS, "\n", TokenIdent, "ghi")
-	checkMatch("---\\\x18-00", TokenDelim, "-", TokenDelim, "-", TokenIdent, "-\x18-00")
+	// checkMatch("---\\\x18-00", TokenDelim, "-", TokenDelim, "-", TokenIdent, "-\x18-00")
+	Fuzz([]byte(
+		`#sw_tfbb,#id_d{display:none}.sw_pref{border-style:solid;border-width:7px 0 7px 10px;vertical-align:bottom}#b_tween{margin-top:-28px}#b_tween>span{line-height:30px}#b_tween .ftrH{line-height:30px;height:30px}input{font:inherit;font-size:100%}.b_searchboxForm{font:18px/normal 'Segoe UI',Arial,Helvetica,Sans-Serif}.b_beta{font:11px/normal Arial,Helvetica,Sans-Serif}.b_scopebar,.id_button{line-height:30px}.sa_ec{font:13px Arial,Helvetica,Sans-Serif}#sa_ul .sa_hd{font-size:11px;line-height:16px}#sw_as strong{font-family:'Segoe UI Semibold',Arial,Helvetica,Sans-Serif}#id_h{background-color:transparent!important;position:relativ e!important;float:right;height:35px!important;width:280px!important}.sw_pref{margin:0 15px 3px 0}#id_d{left:auto;right:26px;top:35px!important}.id_avatar{vertical-align:middle;margin:10px 0 10px 10px}`),
+	)
 }
