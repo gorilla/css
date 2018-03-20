@@ -409,7 +409,7 @@ func (t *Token) WriteTo(w io.Writer) {
 		io.WriteString(w, t.Value)
 		io.WriteString(w, "*/")
 	case TokenFunction:
-		io.WriteString(w, t.Value)
+		io.WriteString(w, escapeIdentifier(t.Value))
 		io.WriteString(w, "(")
 
 	case TokenBadEscape:

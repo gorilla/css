@@ -148,4 +148,5 @@ func TestMatchers(t *testing.T) {
 	// String running to EOF is success, not badstring
 	checkMatch("\"a0\\d", TokenString, "a0\x0D")
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
+	checkMatch("\\fun(", TokenFunction, "\x0fun")
 }
