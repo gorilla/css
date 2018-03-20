@@ -172,6 +172,7 @@ type TokenExtraHash struct {
 	IsIdentifier bool
 }
 
+// Returns a descriptive string, either "unrestricted" or "id".
 func (e *TokenExtraHash) String() string {
 	if e == nil || !e.IsIdentifier {
 		return "unrestricted"
@@ -188,6 +189,7 @@ type TokenExtraNumeric struct {
 	Dimension  string
 }
 
+// Returns the Dimension field.
 func (e *TokenExtraNumeric) String() string {
 	if e == nil {
 		return ""
@@ -201,6 +203,7 @@ type TokenExtraUnicodeRange struct {
 	End   rune
 }
 
+// Returns a valid CSS representation of the token.
 func (e *TokenExtraUnicodeRange) String() string {
 	if e == nil {
 		panic("TokenExtraUnicodeRange: unexpected nil pointer value")
@@ -219,7 +222,7 @@ type TokenExtraError struct {
 	Err error
 }
 
-// String returns the error text.
+// Returns Err.Error().
 func (e *TokenExtraError) String() string {
 	return e.Err.Error()
 }
