@@ -155,7 +155,7 @@ type TokenExtra interface {
 
 // TokenExtraTypeLookup provides a handy check for whether a given token type
 // should contain extra data.
-var TokenExtraTypeLookup = map[TokenType]interface{}{
+var TokenExtraTypeLookup = map[TokenType]TokenExtra{
 	TokenError:        &TokenExtraError{},
 	TokenBadEscape:    &TokenExtraError{},
 	TokenBadString:    &TokenExtraError{},
