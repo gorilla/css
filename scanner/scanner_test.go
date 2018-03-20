@@ -80,6 +80,7 @@ func TestMatchers(t *testing.T) {
 	checkMatch("5e", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e"})
 	checkMatch("5e-", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e-"})
 	checkMatch("5e-3", TokenNumber, "5e-3", &TokenExtraNumeric{NonInteger: true})
+	checkMatch("5e-\xf1", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e-\xf1"})
 
 	checkMatch("url(http://domain.com)", TokenURI, "http://domain.com")
 	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "http://domain.com/uri/between/space")

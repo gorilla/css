@@ -352,7 +352,7 @@ func escapeString(s string) string {
 			continue
 		}
 		if s[i] < utf8.RuneSelf && isNonPrintable(s[i]) {
-			fmt.Fprintf(&buf, "\\%X", s[i])
+			fmt.Fprintf(&buf, "\\%X ", s[i])
 			continue
 		}
 		buf.WriteByte(s[i])
