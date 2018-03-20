@@ -76,6 +76,11 @@ func TestMatchers(t *testing.T) {
 	checkMatch("4.2%", TokenPercentage, "4.2", &TokenExtraNumeric{NonInteger: true})
 	checkMatch(".42%", TokenPercentage, ".42", &TokenExtraNumeric{NonInteger: true})
 	checkMatch("42px", TokenDimension, "42", &TokenExtraNumeric{Dimension: "px"}) // TODO check the dimension stored in .Extra
+
+	checkMatch("5e", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e"})
+	checkMatch("5e-", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e-"})
+	checkMatch("5e-3", TokenNumber, "5e-3", &TokenExtraNumeric{NonInteger: true})
+
 	checkMatch("url(http://domain.com)", TokenURI, "http://domain.com")
 	checkMatch("url( http://domain.com/uri/between/space )", TokenURI, "http://domain.com/uri/between/space")
 	checkMatch("url('http://domain.com/uri/between/single/quote')", TokenURI, "http://domain.com/uri/between/single/quote")
@@ -142,5 +147,4 @@ func TestMatchers(t *testing.T) {
 	// String running to EOF is success, not badstring
 	checkMatch("\"a0\\d", TokenString, "a0\x0D")
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
-	checkMatch("5e", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e"})
 }
