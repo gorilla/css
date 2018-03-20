@@ -247,7 +247,29 @@ func (e *TokenExtraError) ParseError() *ParseError {
 }
 
 func escapeIdentifier(s string) string { return escapeIdent(s, 0) }
+func escapeHashName(s string) string   { return escapeIdent(s, 1) }
 func escapeDimension(s string) string  { return escapeIdent(s, 2) }
+
+func needsHexEscaping(c byte, mode int) bool {
+	if c < 0x20 {
+		return true
+	}
+	if c >= utf8.RuneSelf {
+		return false
+	}
+	if mode == 2 {
+		if c == 'e' || c == 'E' {
+			return true
+		}
+	}
+	if c == '\\' {
+		return true
+	}
+	if isNameCode(c) {
+		return false
+	}
+	return true
+}
 
 func escapeIdent(s string, mode int) string {
 	if s == "" {
@@ -257,36 +279,46 @@ func escapeIdent(s string, mode int) string {
 	buf.Grow(len(s))
 	anyChanges := false
 
+	var i int
+
 	// Handle first character
 	// dashes allowed at start only for TokenIdent-ish
 	// eE not allowed at start for Dimension
-	if !isNameStart(s[0]) && s[0] != '-' && s[0] != 'e' && s[0] != 'E' {
-		if isNonPrintable(s[0]) || s[0] == '\r' || s[0] == '\n' {
-			fmt.Fprintf(&buf, "\\%X ", s[0])
+	if mode != 1 {
+		if !isNameStart(s[0]) && s[0] != '-' && s[0] != 'e' && s[0] != 'E' {
+			if needsHexEscaping(s[0], mode) {
+				fmt.Fprintf(&buf, "\\%X ", s[0])
+				anyChanges = true
+			} else {
+				buf.WriteByte('\\')
+				buf.WriteByte(s[0])
+				anyChanges = true
+			}
+		} else if s[0] == 'e' || s[0] == 'E' {
+			if mode == 2 {
+				fmt.Fprintf(&buf, "\\%X ", s[0])
+				anyChanges = true
+			} else {
+				buf.WriteByte(s[0])
+			}
+		} else if s[0] == '-' {
+			if len(s) == 1 {
+				return "\\-"
+			} else if isNameStart(s[1]) {
+				buf.WriteByte('-')
+			} else {
+				buf.WriteString("\\-")
+				anyChanges = true
+			}
 		} else {
-			buf.WriteByte('\\')
 			buf.WriteByte(s[0])
 		}
-		anyChanges = true
-	} else if s[0] == 'e' || s[0] == 'E' {
-		if mode == 2 {
-			buf.WriteByte('\\')
-			anyChanges = true
-		}
-		buf.WriteByte(s[0])
-	} else if s[0] == '-' {
-		if len(s) == 1 {
-			return "\\-"
-		} else if isNameStart(s[1]) {
-			buf.WriteByte('-')
-		} else {
-			buf.WriteString("\\-")
-		}
+		i = 1
 	} else {
-		buf.WriteByte(s[0])
+		i = 0
 	}
 	// Write the rest of the name
-	for i := 1; i < len(s); i++ {
+	for ; i < len(s); i++ {
 		if !isNameCode(s[i]) {
 			fmt.Fprintf(&buf, "\\%X ", s[i])
 			anyChanges = true
@@ -352,8 +384,13 @@ func (t *Token) WriteTo(w io.Writer) {
 			fmt.Fprint(w, t.Value)
 		}
 	case TokenHash:
+		e := t.Extra.(*TokenExtraHash)
 		io.WriteString(w, "#")
-		fmt.Fprint(w, escapeIdentifier(t.Value))
+		if e.IsIdentifier {
+			fmt.Fprint(w, escapeIdentifier(t.Value))
+		} else {
+			fmt.Fprint(w, escapeHashName(t.Value))
+		}
 	case TokenPercentage:
 		fmt.Fprint(w, t.Value, "%")
 	case TokenDimension:
@@ -370,7 +407,7 @@ func (t *Token) WriteTo(w io.Writer) {
 	case TokenComment:
 		io.WriteString(w, "/*")
 		io.WriteString(w, t.Value)
-		io.WriteString(w, "/*")
+		io.WriteString(w, "*/")
 	case TokenFunction:
 		io.WriteString(w, t.Value)
 		io.WriteString(w, "(")

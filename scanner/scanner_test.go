@@ -62,6 +62,7 @@ func TestMatchers(t *testing.T) {
 	checkMatch(`'ab\\cd'`, TokenString, `ab\cd`)
 	checkMatch("#name", TokenHash, "name", &TokenExtraHash{IsIdentifier: true})
 	checkMatch("##name", TokenDelim, "#", TokenHash, "name", &TokenExtraHash{IsIdentifier: true})
+	checkMatch("#123", TokenHash, "123", &TokenExtraHash{IsIdentifier: false})
 	checkMatch("42''", TokenNumber, "42", &TokenExtraNumeric{}, TokenString, "")
 	checkMatch("+42", TokenNumber, "+42", &TokenExtraNumeric{})
 	checkMatch("-42", TokenNumber, "-42", &TokenExtraNumeric{})
@@ -139,4 +140,5 @@ func TestMatchers(t *testing.T) {
 	// String running to EOF is success, not badstring
 	checkMatch("\"a0\\d", TokenString, "a0\x0D")
 	checkMatch("\"a0\r", TokenBadString, "a0", &TokenExtraError{}, TokenS, "\n")
+	checkMatch("5e", TokenDimension, "5", &TokenExtraNumeric{Dimension: "e"})
 }
