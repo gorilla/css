@@ -101,6 +101,8 @@ func TestMatchers(t *testing.T) {
 	checkMatch("-->", TokenCDC, "-->")
 	checkMatch("   \n   \t   \n", TokenS, "\n") // TODO - whitespace preservation
 	checkMatch("/**/", TokenComment, "")
+	checkMatch("/***/", TokenComment, "*")
+	checkMatch("/**", TokenComment, "*")
 	checkMatch("/*foo*/", TokenComment, "foo")
 	checkMatch("/* foo */", TokenComment, " foo ")
 	checkMatch("bar(", TokenFunction, "bar")
