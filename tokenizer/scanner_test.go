@@ -12,6 +12,9 @@ import (
 )
 
 func TestMatchers(t *testing.T) {
+	// Fuzzer should not print during routine testing
+	fuzzNoPrint = true
+
 	// Just basic checks, not exhaustive at all.
 	checkMatch := func(s string, ttList ...interface{}) {
 		tz := NewTokenizer(strings.NewReader(s))

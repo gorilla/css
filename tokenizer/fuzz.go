@@ -9,15 +9,29 @@ import (
 	"reflect"
 )
 
+// Tests should set this to true to suppress fuzzer output except on failure.
+var fuzzNoPrint = false
+
 // Entry point for fuzz testing.
 func Fuzz(b []byte) int {
-	fmt.Printf("=== Start fuzz test ===\n%s\n", b)
-	var tokens []Token
+	success := false
 
+	var testLogBuf bytes.Buffer
+	fuzzPrintf := func(f string, v ...interface{}) {
+		fmt.Fprintf(&testLogBuf, f, v...)
+	}
+	defer func() {
+		if !success {
+			fmt.Print(testLogBuf.String())
+		}
+	}()
+	fuzzPrintf("=== Start fuzz test ===\n%s\n", b)
+
+	var tokens []Token
 	tz := NewTokenizer(bytes.NewReader(b))
 	for {
 		tt := tz.Next()
-		fmt.Printf("[OT] %v\n", tt)
+		fuzzPrintf("[OT] %v\n", tt)
 		if tt.Type == TokenError {
 			// We should not have reading errors
 			panic(tt)
@@ -32,17 +46,16 @@ func Fuzz(b []byte) int {
 
 	var wr TokenRenderer
 	var rerenderBuf bytes.Buffer
-	success := false
 	defer func() {
 		if !success {
-			fmt.Println("RERENDER BUFFER:", rerenderBuf.String())
+			fuzzPrintf("RE-RENDER BUFFER:\n%s\n", rerenderBuf.String())
 		}
 	}()
 	pr, pw := io.Pipe()
 	defer pr.Close()
 
 	go func() {
-		writeTarget := io.MultiWriter(pw, &rerenderBuf)
+		writeTarget := io.MultiWriter(&rerenderBuf, pw)
 		for _, v := range tokens {
 			wr.WriteTokenTo(writeTarget, v)
 		}
@@ -56,7 +69,7 @@ func Fuzz(b []byte) int {
 			i++
 		}
 		tt := tz.Next()
-		fmt.Printf("[RT] %v\n", tt)
+		fuzzPrintf("[RT] %v\n", tt)
 		if tt.Type == TokenComment {
 			// Ignore comments while comparing
 			continue
