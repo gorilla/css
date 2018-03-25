@@ -3,12 +3,16 @@ sudo: false
 
 matrix:
   include:
-    - go: 1.3
-    - go: 1.4
-    - go: 1.5
-    - go: 1.6
-    - go: 1.7
-    - go: 1.8
+    - go: "1.3"
+      env: SKIP_TOKENIZER=true
+    - go: "1.4"
+      env: SKIP_TOKENIZER=true
+    - go: "1.5"
+    - go: "1.6"
+    - go: "1.7"
+    - go: "1.8"
+    - go: "1.9"
+    - go: "1.10"
     - go: tip
   allow_failures:
     - go: tip
@@ -17,4 +21,9 @@ script:
   - go get -t -v ./...
   - diff -u <(echo -n) <(gofmt -d .)
   - go vet $(go list ./... | grep -v /vendor/)
-  - go test -v -race ./...
+  - >
+      if [ "$SKIP_TOKENIZER" = "true" ]; then
+        go test -v -race ./scanner
+      else
+        go test -v -race ./...
+      fi
