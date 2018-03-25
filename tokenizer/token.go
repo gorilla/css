@@ -377,9 +377,9 @@ func (t *Token) Render() string {
 	return buf.String()
 }
 
-func stickyWriteString(n *int, err *error, w io.Writer, s string) {
+func stickyWriteString(n *int64, err *error, w io.Writer, s string) {
 	n2, err2 := io.WriteString(w, s)
-	*n += n2
+	*n += int64(n2)
 	if err2 != nil {
 		if *err != nil {
 			*err = err2
@@ -392,14 +392,15 @@ func stickyWriteString(n *int, err *error, w io.Writer, s string) {
 // to handle comment insertion rules.
 //
 // Tokens with type TokenError do not write anything.
-func (t *Token) WriteTo(w io.Writer) (n int, err error) {
+func (t *Token) WriteTo(w io.Writer) (n int64, err error) {
 	switch t.Type {
 	case TokenError:
 		return
 	case TokenEOF:
 		return
 	case TokenIdent:
-		return io.WriteString(w, escapeIdentifier(t.Value))
+		stickyWriteString(&n, &err, w, escapeIdentifier(t.Value))
+		return
 	case TokenAtKeyword:
 		stickyWriteString(&n, &err, w, "@")
 		stickyWriteString(&n, &err, w, escapeIdentifier(t.Value))
@@ -407,18 +408,20 @@ func (t *Token) WriteTo(w io.Writer) (n int, err error) {
 	case TokenDelim:
 		if t.Value == "\\" {
 			// nb: should not happen, this is actually TokenBadEscape
-			return io.WriteString(w, "\\\n")
+			stickyWriteString(&n, &err, w, "\\\n")
 		} else {
-			return io.WriteString(w, t.Value)
+			stickyWriteString(&n, &err, w, t.Value)
 		}
+		return
 	case TokenHash:
 		e := t.Extra.(*TokenExtraHash)
-		io.WriteString(w, "#")
+		stickyWriteString(&n, &err, w, "#")
 		if e.IsIdentifier {
-			return io.WriteString(w, escapeIdentifier(t.Value))
+			stickyWriteString(&n, &err, w, escapeIdentifier(t.Value))
 		} else {
-			return io.WriteString(w, escapeHashName(t.Value))
+			stickyWriteString(&n, &err, w, escapeHashName(t.Value))
 		}
+		return
 	case TokenPercentage:
 		stickyWriteString(&n, &err, w, t.Value)
 		stickyWriteString(&n, &err, w, "%")
@@ -429,14 +432,16 @@ func (t *Token) WriteTo(w io.Writer) (n int, err error) {
 		stickyWriteString(&n, &err, w, escapeDimension(e.Dimension))
 		return
 	case TokenString:
-		return io.WriteString(w, escapeString(t.Value, '"'))
+		stickyWriteString(&n, &err, w, escapeString(t.Value, '"'))
+		return
 	case TokenURI:
 		stickyWriteString(&n, &err, w, "url(")
 		stickyWriteString(&n, &err, w, escapeString(t.Value, '"'))
 		stickyWriteString(&n, &err, w, ")")
 		return
 	case TokenUnicodeRange:
-		return io.WriteString(w, t.Extra.String())
+		stickyWriteString(&n, &err, w, t.Extra.String())
+		return
 	case TokenComment:
 		stickyWriteString(&n, &err, w, "/*")
 		stickyWriteString(&n, &err, w, t.Value)
@@ -447,7 +452,8 @@ func (t *Token) WriteTo(w io.Writer) (n int, err error) {
 		stickyWriteString(&n, &err, w, "(")
 		return
 	case TokenBadEscape:
-		return io.WriteString(w, "\\\n")
+		stickyWriteString(&n, &err, w, "\\\n")
+		return
 	case TokenBadString:
 		stickyWriteString(&n, &err, w, "\"")
 		stickyWriteString(&n, &err, w, escapeString(t.Value, 0))
@@ -461,7 +467,8 @@ func (t *Token) WriteTo(w io.Writer) (n int, err error) {
 		stickyWriteString(&n, &err, w, "\n)")
 		return
 	default:
-		return io.WriteString(w, t.Value)
+		stickyWriteString(&n, &err, w, t.Value)
+		return
 	}
 }
 
@@ -475,10 +482,7 @@ type TokenRenderer struct {
 
 // Write a token to the given io.Writer, potentially inserting an empty comment
 // in front based on what the previous token was.
-//
-// In the event of a writing error, the TokenRenderer is left in an
-// indeterminate state.  (TODO: maybe fix that?)
-func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) (n int, err error) {
+func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) (n int64, err error) {
 	var prevKey, curKey interface{}
 	if r.lastToken.Type == TokenDelim {
 		prevKey = r.lastToken.Value[0]
@@ -494,21 +498,18 @@ func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) (n int, err error) {
 	m1, ok := commentInsertionRules[prevKey]
 	if ok {
 		if m1[curKey] {
-			n2, err2 := io.WriteString(w, "/**/")
-			if err2 != nil {
-				return n2, err2
-			} else if n2 != 4 {
-				return n2, io.ErrShortWrite
-			} else {
-				n += n2
-			}
+			stickyWriteString(&n, &err, w, "/**/")
 		}
 	}
 
 	n2, err2 := t.WriteTo(w)
 	r.lastToken = t
+
 	n += n2
-	return n, err2
+	if err2 != nil && err == nil {
+		err = err2
+	}
+	return n, err
 }
 
 // CSS Syntax Level 3 - Section 9
