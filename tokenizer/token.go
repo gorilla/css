@@ -369,86 +369,116 @@ func escapeString(s string, delim byte) string {
 	return buf.String()
 }
 
-// Attempt to turn the token back into a CSS string.  (Wrapper around WriteTo.)
+// Return the CSS source representation of the token.  (Wrapper around
+// WriteTo.)
 func (t *Token) Render() string {
 	var buf bytes.Buffer
-	t.WriteTo(&buf)
+	_, _ = t.WriteTo(&buf)
 	return buf.String()
 }
 
-// Attempt to turn the token back into a CSS string.
-func (t *Token) WriteTo(w io.Writer) {
+func stickyWriteString(n *int, err *error, w io.Writer, s string) {
+	n2, err2 := io.WriteString(w, s)
+	*n += n2
+	if err2 != nil {
+		if *err != nil {
+			*err = err2
+		}
+	}
+}
+
+// Write the CSS source representation of the token to the provided writer.  If
+// you are attempting to render a series of tokens, see the TokenRenderer type
+// to handle comment insertion rules.
+//
+// Tokens with type TokenError do not write anything.
+func (t *Token) WriteTo(w io.Writer) (n int, err error) {
 	switch t.Type {
 	case TokenError:
 		return
 	case TokenEOF:
 		return
 	case TokenIdent:
-		fmt.Fprint(w, escapeIdentifier(t.Value))
+		return io.WriteString(w, escapeIdentifier(t.Value))
 	case TokenAtKeyword:
-		fmt.Fprint(w, "@", escapeIdentifier(t.Value))
+		stickyWriteString(&n, &err, w, "@")
+		stickyWriteString(&n, &err, w, escapeIdentifier(t.Value))
+		return
 	case TokenDelim:
 		if t.Value == "\\" {
-			fmt.Fprint(w, "\\\n")
+			// nb: should not happen, this is actually TokenBadEscape
+			return io.WriteString(w, "\\\n")
 		} else {
-			fmt.Fprint(w, t.Value)
+			return io.WriteString(w, t.Value)
 		}
 	case TokenHash:
 		e := t.Extra.(*TokenExtraHash)
 		io.WriteString(w, "#")
 		if e.IsIdentifier {
-			fmt.Fprint(w, escapeIdentifier(t.Value))
+			return io.WriteString(w, escapeIdentifier(t.Value))
 		} else {
-			fmt.Fprint(w, escapeHashName(t.Value))
+			return io.WriteString(w, escapeHashName(t.Value))
 		}
 	case TokenPercentage:
-		fmt.Fprint(w, t.Value, "%")
+		stickyWriteString(&n, &err, w, t.Value)
+		stickyWriteString(&n, &err, w, "%")
+		return
 	case TokenDimension:
 		e := t.Extra.(*TokenExtraNumeric)
-		fmt.Fprint(w, t.Value, escapeDimension(e.Dimension))
+		stickyWriteString(&n, &err, w, t.Value)
+		stickyWriteString(&n, &err, w, escapeDimension(e.Dimension))
+		return
 	case TokenString:
-		io.WriteString(w, escapeString(t.Value, '"'))
+		return io.WriteString(w, escapeString(t.Value, '"'))
 	case TokenURI:
-		io.WriteString(w, "url(")
-		io.WriteString(w, escapeString(t.Value, '"'))
-		io.WriteString(w, ")")
+		stickyWriteString(&n, &err, w, "url(")
+		stickyWriteString(&n, &err, w, escapeString(t.Value, '"'))
+		stickyWriteString(&n, &err, w, ")")
+		return
 	case TokenUnicodeRange:
-		io.WriteString(w, t.Extra.String())
+		return io.WriteString(w, t.Extra.String())
 	case TokenComment:
-		io.WriteString(w, "/*")
-		io.WriteString(w, t.Value)
-		io.WriteString(w, "*/")
+		stickyWriteString(&n, &err, w, "/*")
+		stickyWriteString(&n, &err, w, t.Value)
+		stickyWriteString(&n, &err, w, "*/")
+		return
 	case TokenFunction:
-		io.WriteString(w, escapeIdentifier(t.Value))
-		io.WriteString(w, "(")
-
+		stickyWriteString(&n, &err, w, escapeIdentifier(t.Value))
+		stickyWriteString(&n, &err, w, "(")
+		return
 	case TokenBadEscape:
-		io.WriteString(w, "\\\n")
+		return io.WriteString(w, "\\\n")
 	case TokenBadString:
-		io.WriteString(w, "\"")
-		io.WriteString(w, escapeString(t.Value, 0))
-		io.WriteString(w, "\n")
+		stickyWriteString(&n, &err, w, "\"")
+		stickyWriteString(&n, &err, w, escapeString(t.Value, 0))
+		stickyWriteString(&n, &err, w, "\n")
+		return
 	case TokenBadURI:
-		io.WriteString(w, "url(\"")
+		stickyWriteString(&n, &err, w, "url(\"")
 		str := escapeString(t.Value, 0)
 		str = strings.TrimSuffix(str, "\"")
-		io.WriteString(w, str)
-		io.WriteString(w, "\n)")
+		stickyWriteString(&n, &err, w, str)
+		stickyWriteString(&n, &err, w, "\n)")
+		return
 	default:
-		fmt.Fprint(w, t.Value)
+		return io.WriteString(w, t.Value)
 	}
 }
 
 // TokenRenderer takes care of the comment insertion rules for serialization.
 // This type is mostly intended for the fuzz test and not for general
-// consumption, but it can be used for that.
+// consumption, but it can be used by consumers that want to re-render a parse
+// stream.
 type TokenRenderer struct {
 	lastToken Token
 }
 
 // Write a token to the given io.Writer, potentially inserting an empty comment
 // in front based on what the previous token was.
-func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) {
+//
+// In the event of a writing error, the TokenRenderer is left in an
+// indeterminate state.  (TODO: maybe fix that?)
+func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) (n int, err error) {
 	var prevKey, curKey interface{}
 	if r.lastToken.Type == TokenDelim {
 		prevKey = r.lastToken.Value[0]
@@ -464,13 +494,24 @@ func (r *TokenRenderer) WriteTokenTo(w io.Writer, t Token) {
 	m1, ok := commentInsertionRules[prevKey]
 	if ok {
 		if m1[curKey] {
-			io.WriteString(w, "/**/")
+			n2, err2 := io.WriteString(w, "/**/")
+			if err2 != nil {
+				return n2, err2
+			} else if n2 != 4 {
+				return n2, io.ErrShortWrite
+			} else {
+				n += n2
+			}
 		}
 	}
 
-	t.WriteTo(w)
+	n2, err2 := t.WriteTo(w)
 	r.lastToken = t
+	n += n2
+	return n, err2
 }
+
+// CSS Syntax Level 3 - Section 9
 
 var commentInsertionThruCDC = map[interface{}]bool{
 	TokenIdent:        true,
