@@ -73,3 +73,39 @@ func TestMatchers(t *testing.T) {
 	checkMatch("\uFEFF", TokenBOM, "\uFEFF")
 	checkMatch(`╯︵┻━┻"stuff"`, TokenIdent, "╯︵┻━┻", TokenString, `"stuff"`)
 }
+
+func TestPreprocess(t *testing.T) {
+	tcs := []struct{ desc, input, expected string }{
+		{
+			"CR",
+			".a{ \r color:red}",
+			".a{ \n color:red}",
+		},
+		{
+			"FF",
+			".a{ \f color:red}",
+			".a{ \n color:red}",
+		},
+		{
+			"CRLF",
+			".a{ \r\n color:red}",
+			".a{ \n color:red}",
+		},
+		{
+			"NULL",
+			".a{ \u0000 color:red}",
+			".a{ \ufffd color:red}",
+		},
+		{
+			"mixture",
+			".a{ \r\r\n\u0000\f color:red}",
+			".a{ \n\n\ufffd\n color:red}",
+		},
+	}
+	for _, tc := range tcs {
+		s := New(tc.input)
+		if s.input != tc.expected {
+			t.Errorf("%s: got=%q, want=%q", tc.desc, s.input, tc.expected)
+		}
+	}
+}
