@@ -236,7 +236,7 @@ func (s *Scanner) Next() *Token {
 	// shortcut before testing multiple regexps.
 	input := s.input[s.pos:]
 	switch input[0] {
-	case '\t', '\n', '\f', '\r', ' ':
+	case '\t', '\n', ' ':
 		// Whitespace.
 		return s.emitToken(TokenS, matchers[TokenS].FindString(input))
 	case '.':
