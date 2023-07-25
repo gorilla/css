@@ -1,5 +1,5 @@
-css
-===
+# gorilla/css
+
 ![testing](https://github.com/gorilla/css/actions/workflows/test.yml/badge.svg)
 [![codecov](https://codecov.io/github/gorilla/css/branch/main/graph/badge.svg)](https://codecov.io/github/gorilla/css)
 [![godoc](https://godoc.org/github.com/gorilla/css?status.svg)](https://godoc.org/github.com/gorilla/css)
